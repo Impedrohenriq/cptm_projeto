@@ -1,0 +1,461 @@
+/* ============================================================
+   CPTM AMBIENTAL — Vue Mobile-First
+   Arquivo: main.css
+   Reset, base e utilitários globais
+   ============================================================ */
+
+@import './variables.css';
+
+/* ---- Reset ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  height: 100%;
+}
+
+body {
+  font-family: var(--fonte-principal);
+  font-size: var(--txt-base);
+  color: var(--cptm-cinza-escuro);
+  background-color: var(--cptm-cinza-fundo);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+#app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+img, svg {
+  display: block;
+  max-width: 100%;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul, ol { list-style: none; }
+
+/* ---- Acessibilidade ---- */
+:focus-visible {
+  outline: 3px solid var(--cptm-vermelho);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Container mobile-first ---- */
+.container {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 var(--s-md);
+}
+
+/* ---- Animações globais ---- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); box-shadow: var(--shadow-fab); }
+  50%       { transform: scale(1.03); box-shadow: 0 10px 30px rgba(200,16,46,.50); }
+}
+
+@keyframes slideUpModal {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ---- Vue page transitions ---- */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateX(24px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateX(-24px);
+}
+
+/* Evita flash durante transições */
+.page-leave-active {
+  position: absolute;
+  width: 100%;
+}
+
+/* ---- Botões base ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-sm);
+  min-height: var(--h-btn);
+  padding: var(--s-md) var(--s-lg);
+  border: none;
+  border-radius: var(--r-md);
+  font-size: var(--txt-md);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  text-align: center;
+  width: 100%;
+}
+.btn:active { transform: scale(0.97); }
+
+.btn--primario {
+  background-color: var(--cptm-vermelho);
+  color: var(--cptm-branco);
+  box-shadow: var(--shadow-md);
+  transition: background-color var(--t-fast), opacity var(--t-fast), box-shadow var(--t-fast);
+}
+.btn--primario:hover    { background-color: var(--cptm-vermelho-escuro); }
+.btn--primario:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn--verde {
+  background-color: var(--verde-principal);
+  color: var(--cptm-branco);
+  box-shadow: 0 4px 12px rgba(46,125,50,.35);
+}
+.btn--verde:hover { background-color: var(--verde-hover); }
+
+.btn--secundario {
+  background-color: var(--cptm-branco);
+  color: var(--cptm-cinza-escuro);
+  border: 2px solid var(--cptm-cinza-borda);
+  box-shadow: var(--shadow-sm);
+}
+.btn--secundario:hover { border-color: var(--cptm-cinza-claro); }
+
+.btn--fantasma {
+  background: transparent;
+  color: var(--cptm-cinza-medio);
+  border: none;
+  box-shadow: none;
+  min-height: auto;
+  padding: var(--s-sm) var(--s-md);
+  font-weight: 500;
+  width: auto;
+}
+
+/* ---- Campos ---- */
+.campo-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-xs);
+  margin-bottom: var(--s-md);
+}
+.campo-label {
+  font-size: var(--txt-sm);
+  font-weight: 600;
+  color: var(--cptm-cinza-medio);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.campo-input {
+  width: 100%;
+  min-height: var(--h-input);
+  padding: var(--s-md);
+  border: 2px solid var(--cptm-cinza-borda);
+  border-radius: var(--r-md);
+  background-color: var(--cptm-branco);
+  color: var(--cptm-cinza-escuro);
+  font-size: var(--txt-md);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.campo-input::placeholder { color: var(--cptm-cinza-claro); }
+.campo-input:focus {
+  outline: none;
+  border-color: var(--cptm-vermelho);
+  box-shadow: 0 0 0 4px rgba(200,16,46,.12);
+}
+.campo-input--icone { padding-left: 52px; }
+
+.campo-wrapper { position: relative; }
+.campo-icone {
+  position: absolute;
+  left: var(--s-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cptm-cinza-claro);
+  pointer-events: none;
+  width: 22px;
+  height: 22px;
+}
+
+/* ---- Badges de status ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  font-size: var(--txt-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.badge--rascunho {
+  background: var(--status-rascunho-bg);
+  color: var(--status-rascunho);
+}
+.badge--enviada {
+  background: var(--status-enviada-bg);
+  color: var(--status-enviada);
+}
+.badge--analisada {
+  background: var(--status-analisada-bg);
+  color: var(--status-analisada);
+}
+
+/* ---- Checkbox ---- */
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--s-sm);
+  cursor: pointer;
+  user-select: none;
+}
+.checkbox-wrapper input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--cptm-cinza-borda);
+  border-radius: var(--r-sm);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  background: white;
+  transition: background-color var(--t-fast), border-color var(--t-fast);
+  flex-shrink: 0;
+  position: relative;
+}
+.checkbox-wrapper input[type="checkbox"]:checked {
+  background-color: var(--cptm-vermelho);
+  border-color: var(--cptm-vermelho);
+}
+.checkbox-wrapper input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 8px;
+  height: 12px;
+  border: 2.5px solid white;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+.checkbox-label {
+  font-size: var(--txt-sm);
+  color: var(--cptm-cinza-medio);
+}
+
+/* ---- Textarea ---- */
+.campo-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: var(--s-md);
+  border: 2px solid var(--cptm-cinza-borda);
+  border-radius: var(--r-md);
+  background: var(--cptm-branco);
+  color: var(--cptm-cinza-escuro);
+  font-size: var(--txt-base);
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color var(--t-fast);
+}
+.campo-textarea:focus {
+  outline: none;
+  border-color: var(--cptm-vermelho);
+  box-shadow: 0 0 0 4px rgba(200,16,46,.10);
+}
+.campo-textarea::placeholder { color: var(--cptm-cinza-claro); }
+
+/* ---- Modal overlay ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.modal-card {
+  background: white;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: var(--s-xl) var(--s-lg) calc(var(--s-xl) + var(--safe-bottom));
+  width: 100%;
+  max-width: 480px;
+  animation: slideUpModal 0.3s ease;
+}
+
+/* ---- Responsivo tablet-up ---- */
+@media (min-width: 768px) {
+  :root {
+    --txt-base: 1.0625rem;
+    --txt-md:   1.1875rem;
+  }
+}
+
+/* ============================================================
+   FDC Form Design System � shared across all Etapa components
+   ============================================================ */
+
+/* Page wrapper */
+.fdc-etapa { padding: var(--s-lg) var(--s-md); animation: fadeInUp 0.3s ease both; }
+
+/* ---- Section header ---- */
+.fdc-sec { display: flex; gap: 12px; align-items: flex-start; margin: 32px 0 18px; }
+.fdc-sec:first-child { margin-top: 0; }
+.fdc-sec__badge {
+  flex-shrink: 0; min-width: 36px; height: 28px; padding: 0 10px;
+  background: var(--cptm-vermelho); color: #fff; border-radius: var(--r-full);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.03em; margin-top: 2px;
+}
+.fdc-sec__title { font-size: var(--txt-base); font-weight: 800; color: var(--cptm-cinza-escuro); margin: 0 0 2px; line-height: 1.3; }
+.fdc-sec__desc  { font-size: var(--txt-xs); color: var(--cptm-cinza-claro); margin: 0; line-height: 1.4; }
+
+/* ---- Field container ---- */
+.fdc-field { margin-bottom: 14px; }
+
+/* ---- Label ---- */
+.fdc-lbl {
+  display: block; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--cptm-cinza-medio); margin-bottom: 7px; padding-left: 2px; line-height: 1.3;
+}
+.fdc-lbl.req::after { content: ' *'; color: var(--cptm-vermelho); font-size: 13px; letter-spacing: 0; }
+
+/* ---- Hint ---- */
+.fdc-hint { font-size: var(--txt-xs); color: var(--cptm-cinza-claro); line-height: 1.4; margin-bottom: 7px; padding-left: 2px; }
+
+/* ---- Input wrapper ---- */
+.fdc-wrap { position: relative; }
+
+/* ---- Base input ---- */
+.fdc-input {
+  display: block; width: 100%; height: 52px; padding: 0 44px 0 14px;
+  border: 1.5px solid var(--cptm-cinza-borda); border-radius: 12px;
+  font-size: var(--txt-base); font-family: var(--fonte-principal);
+  color: var(--cptm-cinza-escuro); background: var(--cptm-branco);
+  box-sizing: border-box; outline: none; -webkit-appearance: none; appearance: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.fdc-input::placeholder { color: var(--cptm-cinza-claro); font-size: var(--txt-sm); }
+.fdc-input:focus { border-color: var(--cptm-vermelho); box-shadow: 0 0 0 3px rgba(200,16,46,0.12); }
+input[type="date"].fdc-input, input[type="time"].fdc-input { padding-right: 10px; cursor: pointer; }
+.fdc-input--num { padding-right: 44px; }
+
+/* ---- Select wrapper ---- */
+.fdc-wrap--sel .fdc-input { cursor: pointer; }
+
+/* ---- Clear (�) button ---- */
+.fdc-clear {
+  position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px; border: none; background: var(--cptm-cinza-borda);
+  border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--cptm-cinza-medio); padding: 0; font-size: 15px; line-height: 1;
+  transition: background 0.15s; -webkit-tap-highlight-color: transparent;
+}
+.fdc-clear:hover { background: #c8c8c8; }
+
+/* ---- Chevron for select ---- */
+.fdc-chevron {
+  position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+  color: var(--cptm-cinza-claro); pointer-events: none;
+}
+
+/* ---- Textarea ---- */
+.fdc-textarea {
+  display: block; width: 100%; min-height: 110px; padding: 14px;
+  border: 1.5px solid var(--cptm-cinza-borda); border-radius: 12px;
+  font-size: var(--txt-sm); font-family: var(--fonte-principal);
+  color: var(--cptm-cinza-escuro); background: var(--cptm-branco);
+  box-sizing: border-box; resize: vertical; outline: none;
+  -webkit-appearance: none; appearance: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.fdc-textarea::placeholder { color: var(--cptm-cinza-claro); }
+.fdc-textarea:focus { border-color: var(--cptm-vermelho); box-shadow: 0 0 0 3px rgba(200,16,46,0.12); }
+.fdc-textarea-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; padding: 0 2px; }
+.fdc-chars { font-size: var(--txt-xs); color: var(--cptm-cinza-claro); }
+.fdc-txt-clear { font-size: var(--txt-xs); font-weight: 600; color: var(--cptm-cinza-claro); background: none; border: none; cursor: pointer; padding: 0; }
+.fdc-txt-clear:hover { color: var(--cptm-vermelho); }
+
+/* ---- Auto-computed field ---- */
+.fdc-auto {
+  background: var(--cptm-cinza-fundo); border: 1.5px dashed var(--cptm-cinza-borda);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
+}
+.fdc-auto__lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cptm-cinza-claro); margin-bottom: 4px; }
+.fdc-auto__val { font-size: var(--txt-sm); font-weight: 600; color: var(--cptm-cinza-escuro); font-family: monospace; letter-spacing: 0.02em; word-break: break-all; }
+
+/* ---- Two-column row ---- */
+.fdc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ---- GPS button ---- */
+.fdc-gps {
+  width: 100%; height: 50px; border: 1.5px solid var(--verde-principal); border-radius: 12px;
+  background: var(--verde-suave); color: var(--verde-principal); font-size: var(--txt-sm);
+  font-weight: 700; font-family: var(--fonte-principal);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer; margin-bottom: 14px; transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.fdc-gps:active { background: #c8e6c9; }
+.fdc-gps:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -1,0 +1,359 @@
+,,,,,,,,,,,,
+,,Simulação de Layout do Formulário 1,,,ID no BD_01,ID no BD_02,Deve constar no Formulário?,Visível?,Editável?,"Resgatar do ""cache""?",Valor Padrão/Fórmula/Domínios e Listas  Suspensas,Ordem Visual
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,"
+
+
+Companhia Paulista de Trens Metropolitanos - CPTM
+Gerência de Meio Ambiente - GEA
+Formulário de Cadastramento/Caracterização - FDC
+Programa Ambiental: Efluentes e Emissões Atmosféricas - EEA
+Natureza: Efluentes - EF",,,,,,,,,,
+,,,,,,,,,,,,
+,,"Glossário:
+Elemento de Monitoramento - E.M.
+Pessoa Física - PF
+Pessoa Jurídica - PJ
+Documento de Regularidade Ambiental - DRA
+Programa Ambiental - PGA",,,,,,,,,,
+,,,,,,,,,,,,
+,,1. Premíssas Institucionais / Cabeçalho,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome (Pesso Jurídica) da Contratada,,,52,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o nome e sigla da Contratada.
+Separar nome e sigla por "" - "".
+A sigla pode conter até 10 caracteres, maiúsculos e sem espaços.
+----------
+Exemplo:
+""Companhia Paulista de Trens Metropolitanos - CPTM""",,,,,,,,,,
+,,Companhia Paulista de Trens Metropolitanos S.A. - CPTM,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nº do Contrato (da Contratada),,,53,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o identificador do contrato da Contratada, se aplicável.
+Padrão:
+Número/Código com até 12 (doze) caracteres e sem espaços.
+----------
+Exemplo:
+""001001001001"" ou ""XX1234-12""",,,,,,,,,,
+,,AR01234-56,,,,,,,,,,
+,,,,,,,,,,,,
+,,Local do Escopo Contratual (Pseudônimo),,,17,-,Sim,Sim,Sim,Sim,,
+,,"Indicar um nome genérico (pseudônimo) para o local do escopo contratual ou área/trecho da CPTM.
+----------
+Exemplos:
+1. Túnel da Estação da Luz
+2. Plataforma 1 da Estação Brás
+3. Pátio Lapa
+4. Linha 07 - Rubi",,,,,,,,,,
+,,Pátio Capuava,,,,,,,,,,
+,,,,,,,,,,,,
+,,Representante (PF) da Contratada e/ou Área Gestora da CPTM,,,57,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o nome do responsável interlocutor da Contratada e/ou da Área Gestora da CPTM para assuntos de meio ambiente, utilizando no máximo 89 caracteres.
+----------
+Exemplo:
+""Representante da Contratada / Representante da CPTM""",,,,,,,,,,
+,,Pessoa 1 / Pessoa 2,,,,,,,,,,
+,,,,,,,,,,,,
+,,Sigla da Área de Meio Ambiente,,,4,-,Sim,Sim,Sim,Sim,GEA_TX_SIGLA_DEPTO_MEIO_AMBIENTE,
+,,"Escolher a sigla do departamento interlocutor da Gerência de Meio Ambiente - GEA.
+Utilizar o Menu Suspenso, à direta da célula.
+----------
+Exemplo:
+""GEA.DEAE"" ou ""GEA.DEAO""",,,,,,,,,,
+,,GEA.DEAE,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome da Área Gestora CPTM,,,54,-,Sim,Sim,Sim,Sim,GEA_TX_NM_AREA_GESTORA_CPTM,
+,,"Escolher área gestora da CPTM, se aplicável. 
+Utilizar o Menu Suspenso, à direta da célula.
+Em caso de dúvida consultar a aba ""Domínios e Listas Suspensas"", em ""GEA_AREA_GESTORA_CONTRATO"".",,,,,,,,,,
+,,"(DO.GOF.DOFS.0000)
+ DEPTO. DE MANUT. DE SISTEMAS ELETR. E RESTAB. DE SERVICOS
+ [ID.10-15-5-3-0000]",,,,,,,,,,
+,,,,,,,,,,,,
+,,Indentificador da Área Gestora CPTM,,,55,-,Sim,Não,Não,Não,ID.10-15-5-3-0000,
+,,Campo Automático,,,,,,,,,,
+,,ID.10-15-5-3-0000,,,,,,,,,,
+,,,,,,,,,,,,
+,,Sigla da Área Gestora CPTM,,,56,-,Sim,Não,Não,Não,DO.GOF.DOFS.0000,
+,,Campo Automático,,,,,,,,,,
+,,DO.GOT.DOTV.1000,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome (PJ) da Supervisora Ambiental,,,58,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o nome e sigla da Supervisora Ambiental, utilizando no máximo 89 caracteres. Quando a Supervisora for a própria CPTM repetir a gerência e departamento ambiental informados anteriormente.
+----------
+Exemplo:
+""Empresa Supervisora Ambiental Ltda - ESA""
+ou ""GEA.DEAO""",,,,,,,,,,
+,,Empresa de Supervisão Ambiental Ltda. - ESA,,,,,,,,,,
+,,,,,,,,,,,,
+,,2. Identificação do Cadastrador e Responsável Técnico,,,,,,,,,,
+,,,,,,,,,,,,
+,,Autor(a) (PF) do Cadastramento,,,48,-,Sim,Sim,Sim,Sim,,
+,,Inserir o nome completo da pessoa que realizou o cadastramento da informação.,,,,,,,,,,
+,,Nome e Sobrenome - Pessoa 4,,,,,,,,,,
+,,,,,,,,,,,,
+,,Responsável Técnico - RT pelo Cadastramento,,,49,-,Sim,Sim,Sim,Sim,,
+,,Inserir o nome completo do(a) responsável técnico(a) pelo cadastramento/caracterização da informação.,,,,,,,,,,
+,,Nome e Sobrenome - Pessoa 5,,,,,,,,,,
+,,,,,,,,,,,,
+,,Registro Profissional (do RT),,,50,-,Sim,Sim,Sim,Sim,,
+,,Inserir o registro profissional do(a) responsável técnico(a) pelo cadastramento/caracterização da informação.,,,,,,,,,,
+,,CREA - 123456 - Pessoa 5,,,,,,,,,,
+,,,,,,,,,,,,
+,,Documento de Responsabilidade Técnica (do RT),,,51,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o documento de responsabilidade técnica do(a) responsável técnico(a) pela realização do trabalho.
+----------
+Exemplo:
+Anotação de Responsabilidade Técnica - ART",,,,,,,,,,
+,,ART nº 123456 - Pessoa 5,,,,,,,,,,
+,,,,,,,,,,,,
+,,3. Identificação do Formulário,,,,,,,,,,
+,,,,,,,,,,,,
+,,Natureza (do PGA),,,22,-,Sim,Sim,Sim,Sim,GEA_TX_NATUREZA_DO_PGA,
+,,"Escolher a Natureza correspondente.
+Utilizar o Menu Suspenso, à direta da célula.
+----------
+Exemplo:
+""Efluente""",,,,,,,,,,
+,,Emissões Atmosféricas,,,,,,,,,,
+,,,,,,,,,,,,
+,,Tipo de Formulário,,,18,-,Sim,Sim,Não,Não,"""Formulário de Cadastramento - FDC (FDC-EEA.EF)""",
+,,Campo Automático,,,,,,,,,,
+,,Formulário de Cadastramento - FDC (FDC-EEA.EF),,,,,,,,,,
+,,,,,,,,,,,,
+,,Data de Emissão do Formulário,,,19,-,Sim,Sim,Sim,Sim,,
+,,"Inserir a data de emissão do documento.
+Padão:
+dd/mm/aaaa
+----------
+Exemplo:
+01/01/2001",,,,,,,,,,
+,,1/1/2026,,,,,,,,,,
+,,,,,,,,,,,,
+,,Número do Formulário,,,20,-,Sim,Sim,Sim,Sim,,
+,,"Inserir a o número de identificação do formulário.  Escolher de 1 a 999.999. Digitar apenas números. O número deve ser sequencial, não replicável e com seis (6) unidades.
+Padrão de Preenchimento: ""000001""; ""999999""
+-----
+Exibição Final: ""Nº 000001""",,,,,,,,,,
+,,Nº 000001,,,,,,,,,,
+,,,,,,,,,,,,
+,,Autor(a) (Pessoa Física) do Formulário,,,21,-,Sim,Sim,Sim,Sim,,
+,,"""Definir Explicação""",,,,,,,,,,
+,,Pessoa 5,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome do arquivo FDC relacionado,,,60,-,Sim,Sim,Não,Não,Escrever Fórmula,
+,,Campo Automático,,,,,,,,,,
+,,DeaoCtAr01823-02FdcEeaEfL10ProgaiaN000001,,,,,,,,,,
+,,,,,,,,,,,,
+,,Código do arquivo FDC relacionoda,,,61,-,Sim,Sim,Não,Não,FDC-EEA.EF-A.2026-L.07-CPTM-N.000001,
+,,Campo Automático,,,,,,,,,,
+,,FDC-EEA.EF-A.2026-L.07-CPTM-N.000001,,,,,,,,,,
+,,,,,,,,,,,,
+,,4. Data e Hora do Cadastro do E.M.,,,,,,,,,,
+,,,,,,,,,,,,
+,,Data do Cadastramento,,,45,-,Sim,Sim,Sim,Sim,,
+,,"Inserir a data do cadastramanento da informação.
+Padão: dd/mm/aaaa
+----------
+Exemplo:
+01/01/2001",,,,,,,,,,
+,,1/1/2026,,,,,,,,,,
+,,,,,,,,,,,,
+,,Hora do Cadastramento,,,46,-,Sim,Sim,Sim,Sim,,
+,,"Inserir a data do cadastramanento da informação.
+Padão: hh:mm
+----------
+Exemplo:
+09:00",,,,,,,,,,
+,,6:00,,,,,,,,,,
+,,,,,,,,,,,,
+,,5. Identificação do E.M.,,,,,,,,,,
+,,,,,,,,,,,,
+,,Chave Primária - Meio Ambiente,,,1,-,Sim,Sim,Não,Não,EEA.EF-A.2026-L.07-CPTM-N.000001,
+,,Campo Automático,,,,,,,,,,
+,,EEA.EF-A.2026-L.07-CPTM-N.000001,,,,,,,,,,
+,,,,,,,,,,,,
+,,Elemento de Monitoramento - Número,,,2,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o número do elemento monitorado. Escolher de 1 a 999.999. Digitar apenas números. O número deve ser sequencial, não replicável e com seis (6) unidades.
+-----
+Forma de Preencher: 1; 999999
+-----
+Exibição Final: N.000001; N.999999",,,,,,,,,,
+,,N.000001,,,,,,,,,,
+,,,,,,,,,,,,
+,,Elemento de Monitoramento - Nome,,,3,-,Sim,Sim,Sim,Sim,,
+,,"Indicar um nome genérico (pseudônimo) para o elemento de monitoramento.
+----------
+Exemplos:
+1. ""Caçamba A""; 2. ""Plataforma 1 da Estação Brás""; 3. ""Banheiro Químico B""",,,,,,,,,,
+,,Plataforma 1,,,,,,,,,,
+,,,,,,,,,,,,
+,,6. Localização do E.M.,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome de Município,,,7,-,Sim,Sim,Sim,Sim,GEA_TX_MUNICIPIO,
+,,"Selecionar o município no qual está localizado o elemento monitorado no ato da vistoria, se aplicável.
+Utilizar o Menu Suspenso, à direta da célula.",,,,,,,,,,
+,,Campo Limpo Paulista,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome da Linha CPTM,,,8,-,Sim,Sim,Sim,Sim,GEA_TX_LINHA_CPTM,
+,,"Escolher o número da Linha.
+Utilizar o Menu Suspenso, à direta da célula.",,,,,,,,,,
+,,Linha 07 - Rubi,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome da Estação CPTM,,,12,-,Sim,Sim,Sim,Sim,GEA_TX_ESTACAO_CPTM,
+,,"Selecionar o nome da estação na qual está localizado o elemento monitorado no ato da vistoria, se aplicável.
+Utilizar o Menu Suspenso, à direta da célula.",,,,,,,,,,
+,,Estação Jardim Helena - Vila Mara,,,,,,,,,,
+,,,,,,,,,,,,
+,,Número da Via da Linha CPTM,,,9,-,Sim,Sim,Sim,Sim,GEA_TX_VIA_CPTM,
+,,"Selecionar a via na qual está localizado o elemento monitorado no ato da vistoria, se aplicável.
+Utilizar o Menu Suspenso, à direta da célula.",,,,,,,,,,
+,,Via 03E - Trecho 2,,,,,,,,,,
+,,,,,,,,,,,,
+,,Trecho e Sentido da Linha CPTM,,,10,-,Sim,Sim,Sim,Sim,GEA_TX_TRECHO_E_SENTIDO_CPTM,
+,,"Selecionar o trecho e sentido da via na qual está localizado o elemento monitorado no ato da vistoria, se aplicável.
+Utilizar o Menu Suspenso, à direta da célula.",,,,,,,,,,
+,,Estação Antônio Gianetti Neto - Estação Ferraz de Vasconcelos,,,,,,,,,,
+,,,,,,,,,,,,
+,,Número do Quilômetro e Poste,,,11,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o Km/Poste (quilometragem e poste/pórtico) mais próximo do elemento de monitoramento vistoriado, se aplicável.
+----------
+Padrão: ""00/00"" ou ""000/000""
+----------
+Exemplo: ""51/02"" ou ""210/125""",,,,,,,,,,
+,,51/02,,,,,,,,,,
+,,,,,,,,,,,,
+,,Latitude em Graus (Datum: WGS84),,,13,-,Sim,Sim,Sim,Sim,,
+,,"""Definir Explicação""",,,,,,,,,,
+,,"-23,123456",,,,,,,,,,
+,,,,,,,,,,,,
+,,Longitude em Graus (Datum: WGS84),,,14,-,Sim,Sim,Sim,Sim,,
+,,"""Definir Explicação""",,,,,,,,,,
+,,"-46,123456",,,,,,,,,,
+,,,,,,,,,,,,
+,,7. Caracterização do E.M.,,,,,,,,,,
+,,,,,,,,,,,,
+,,7.1. Regulamentação Ambiental,,,,,,,,,,
+,,,,,,,,,,,,
+,,Tipo de Atividade (Listada),,,24,-,Sim,Sim,Sim,Sim,EF_TX_TIPO_ATIVIDADE_LISTADA,
+,,"Selecionar o tipo de atividade relacionada ao elemento de monitoramento.
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Outro(a)(s),,,,,,,,,,
+,,,,,,,,,,,,
+,,Tipo de Atividade (Não Listada),,,25,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o tipo de atividade (não listada) relacionada ao elemento de monitoramento quanto ""Tipo de Atividade (Listada)"" for ""Outro(a)(s)"".
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Transporte,,,,,,,,,,
+,,,,,,,,,,,,
+,,Tipo de DRA (Listado),,,26,-,Sim,Sim,Sim,Sim,EF_TX_TIPO_DRA_LISTADO,
+,,"Selecionar o tipo de DRA relacionado ao elemento de monitoramento.
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Outro(a)(s),,,,,,,,,,
+,,,,,,,,,,,,
+,,Tipo de DRA (Não Listado),,,27,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o tipo de DRA (não listado) relacionado ao elemento de monitoramento quanto ""Tipo de DRA (Listado)"" for ""Outro(a)(s)"".
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Teste,,,,,,,,,,
+,,,,,,,,,,,,
+,,Código Identificador do DRA,,,28,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o código identificador do DRA.
+Exemplo: ""Nº 1.285.456""; ""DFR nº 456.123""",,,,,,,,,,
+,,DRF nº 123.456,,,,,,,,,,
+,,,,,,,,,,,,
+,,Data de Validade do DRA,,,29,-,Sim,Sim,Sim,Sim,,
+,,"Inserir a data de validade do DRA.
+----------
+Padão: dd/mm/aaaa
+----------
+Exemplo: 01/01/2001",,,,,,,,,,
+,,1/1/2026,,,,,,,,,,
+,,,,,,,,,,,,
+,,7.2. Detalhamento,,,,,,,,,,
+,,,,,,,,,,,,
+,,Tipo de Atividade na CPTM,,,31,-,Sim,Sim,Sim,Sim,EF_TX_TIPO_ATIVIDADE_CPTM,
+,,"Selecionar o tipo de atividade na CPTM.
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Empreendimento/Obra,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome Edificação/Local da CPTM,,,32,-,Sim,Sim,Sim,Sim,EF_TX_NM_LOCAL_ATIV,
+,,"Selecionar o nome da edificação/local da CPTM.
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Estação,,,,,,,,,,
+,,,,,,,,,,,,
+,,Nome Edificação/Local (Complemento),,,33,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o complemento do nome da edificação/local na CPTM.
+Ex.: ""Brás""",,,,,,,,,,
+,,Brás,,,,,,,,,,
+,,,,,,,,,,,,
+,,Origem do Efluente,,,34,-,Sim,Sim,Sim,Sim,EF_TX_ORIGEM_EFLUENTE,
+,,"Selecionar a origem do efluente.
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Industrial,,,,,,,,,,
+,,,,,,,,,,,,
+,,Fonte Geradora do Efluente,,,35,-,Sim,Sim,Sim,Sim,EF_TX_FONTE_GERADORA,
+,,"Selecionar a fonte geradora do efluente.
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Banheiro químico,,,,,,,,,,
+,,,,,,,,,,,,
+,,Quantidade (Litros),,,36,-,Sim,Sim,Sim,Sim,,
+,,"Inserir a quantidade (em litros) de efluente.
+Padrão: número com até 8 casas decimais.
+Exemplo: ""0,12345678"" ou ""25,78""",,,,,,,,,,
+,,"9,25 litros",,,,,,,,,,
+,,,,,,,,,,,,
+,,Tipo de Destinação do Efluente,,,37,-,Sim,Sim,Sim,Sim,EF_TX_TIPO_DESTINACAO,
+,,"Selecionar o tipo de destinação do efluente.
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Interligação em rede coletora,,,,,,,,,,
+,,,,,,,,,,,,
+,,Tipo de Veículo,,,38,-,Sim,Sim,Sim,Sim,EF_TX_TIPO_VEICULO,
+,,"Selecionar o tipo de veículo transportador do efluente.
+Utilizar a lista suspensa, à direita da célula.",,,,,,,,,,
+,,Caminhão,,,,,,,,,,
+,,,,,,,,,,,,
+,,Identificador/Placa do Veículo,,,39,-,Sim,Sim,Sim,Sim,,
+,,"Inserir identificador/placa do veículo transportador do efluente.
+Exemplo: ""WAD 105D""",,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,Código Identificador da Guia de Remessa,,,40,-,Sim,Sim,Sim,Sim,,
+,,"Inserir o código identificador da guia de remessa.
+Exemplo: ""ID nº 10.456""",,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,Distância da Via CPTM (Metros),,,41,-,Sim,Sim,Sim,Sim,,
+,,"Inserir a distância da via mais próxima em relação ao efluente, utilizando número decimal em metros.
+Padrão: ""... ,00""
+Exemplo: 7,58",,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,Obsevações Gerais: Cadastramento,,,44,-,Sim,Sim,Sim,Sim,,
+,,"Inserir observações relavantes, relativas ao cadastramento/caracterização, se necessário.
+Utilizar no máximo 255 caracteres.",,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,7.3. Registro Fotográfico,,,,,,,,,,
+,,,,,,,,,,,,
+,,Fotografia 1,,,70,1,Sim,Sim,Sim,Não,"Tipo de Dado: Imagem (""Fotografia 4x3"")",
+,,"Inserir Foto.
+Tamanho: 3x4.
+Posição e Orientação: Paisagem/Horizontal",,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,Fotografia 2,,,71,1,Sim,Sim,Sim,Não,"Tipo de Dado: Imagem (""Fotografia 4x3"")",
+,,"Inserir Foto.
+Tamanho: 3x4.
+Posição e Orientação: Paisagem/Horizontal",,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,Fotografia 3,,,72,1,Sim,Sim,Sim,Não,"Tipo de Dado: Imagem (""Fotografia 4x3"")",
+,,"Inserir Foto.
+Tamanho: 3x4.
+Posição e Orientação: Paisagem/Horizontal",,,,,,,,,,
+,,,,,,,,,,,,
+,,,,,,,,,,,,
+,,Fotografia 4,,,73,1,Sim,Sim,Sim,Não,"Tipo de Dado: Imagem (""Fotografia 4x3"")",
+,,"Inserir Foto.
+Tamanho: 3x4.
+Posição e Orientação: Paisagem/Horizontal",,,,,,,,,,

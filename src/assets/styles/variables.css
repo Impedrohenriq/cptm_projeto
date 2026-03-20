@@ -1,0 +1,98 @@
+/* ============================================================
+   CPTM AMBIENTAL — Vue Mobile-First
+   Arquivo: variables.css
+   Design Tokens: cores, tipografia, espaçamentos, bordas, sombras
+   ============================================================ */
+
+:root {
+  /* ---- Paleta CPTM ---- */
+  --cptm-vermelho:        #C8102E;
+  --cptm-vermelho-escuro: #9B0B22;
+  --cptm-vermelho-claro:  #E8394F;
+  --cptm-branco:          #FFFFFF;
+  --cptm-cinza-escuro:    #1A1A1A;
+  --cptm-cinza-medio:     #4A4A4A;
+  --cptm-cinza-claro:     #8A8A8A;
+  --cptm-cinza-fundo:     #F4F4F4;
+  --cptm-cinza-borda:     #DEDEDE;
+  --cptm-cinza-card:      #EFEFEF;
+
+  /* ---- Paleta Ambiental ---- */
+  --verde-principal:  #2E7D32;
+  --verde-claro:      #4CAF50;
+  --verde-suave:      #E8F5E9;
+  --verde-hover:      #1B5E20;
+
+  /* ---- Status ---- */
+  --status-rascunho:    #FF8F00;
+  --status-enviada:     #1565C0;
+  --status-analisada:   #2E7D32;
+  --status-rascunho-bg: #FFF3E0;
+  --status-enviada-bg:  #E3F2FD;
+  --status-analisada-bg:#E8F5E9;
+
+  /* ---- Tipografia ---- */
+  --fonte-principal: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --txt-xs:   0.75rem;   /* 12px */
+  --txt-sm:   0.875rem;  /* 14px */
+  --txt-base: 1rem;      /* 16px */
+  --txt-md:   1.125rem;  /* 18px */
+  --txt-lg:   1.25rem;   /* 20px */
+  --txt-xl:   1.5rem;    /* 24px */
+  --txt-2xl:  1.875rem;  /* 30px */
+  --txt-3xl:  2.25rem;   /* 36px */
+
+  /* ---- Espaçamentos ---- */
+  --s-xs:  0.25rem;  /* 4px  */
+  --s-sm:  0.5rem;   /* 8px  */
+  --s-md:  1rem;     /* 16px */
+  --s-lg:  1.5rem;   /* 24px */
+  --s-xl:  2rem;     /* 32px */
+  --s-2xl: 3rem;     /* 48px */
+
+  /* ---- Bordas ---- */
+  --r-sm:   6px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   24px;
+  --r-full: 9999px;
+
+  /* ---- Sombras ---- */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+  --shadow-md:  0 4px 12px rgba(0,0,0,.12), 0 2px 4px rgba(0,0,0,.08);
+  --shadow-lg:  0 8px 24px rgba(0,0,0,.15), 0 4px 8px rgba(0,0,0,.08);
+  --shadow-fab: 0 6px 20px rgba(200,16,46,.40);
+
+  /* ---- Transições ---- */
+  --t-fast:   0.15s ease;
+  --t-normal: 0.25s ease;
+  --t-slow:   0.4s ease;
+
+  /* ---- Dimensões touch-friendly ---- */
+  --h-btn:   56px;
+  --h-input: 54px;
+  --sz-icon: 24px;
+  --sz-fab:  64px;
+
+  /* ---- Safe areas (iOS notch) ---- */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+
+  /* ---- Bottom nav height ---- */
+  --bottom-nav-h: 68px;
+}
+
+/* Dark mode (future-ready) */
+@media (prefers-color-scheme: dark) {
+  :root.auto-dark {
+    --cptm-cinza-fundo:  #121212;
+    --cptm-cinza-card:   #1E1E1E;
+    --cptm-branco:       #1E1E1E;
+    --cptm-cinza-escuro: #F4F4F4;
+    --cptm-cinza-medio:  #BDBDBD;
+    --cptm-cinza-claro:  #757575;
+    --cptm-cinza-borda:  #333333;
+  }
+}
