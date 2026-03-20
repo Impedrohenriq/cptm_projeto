@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import * as api from '@/services/api.js'
 
 const INSPECOES_KEY = 'cptm_inspecoes'
 const SEED_VERSION  = 'v4'
@@ -17,6 +18,8 @@ function loadInspecoes() {
 
 export const useInspecoesStore = defineStore('inspecoes', () => {
   const inspecoes = ref(loadInspecoes())
+  const loading = ref(false)
+  const erro = ref(null)
 
   const total = computed(() => inspecoes.value.length)
   const enviadas = computed(() => inspecoes.value.filter(i => i.status === 'enviada').length)
@@ -50,13 +53,79 @@ export const useInspecoesStore = defineStore('inspecoes', () => {
     persist()
   }
 
-  function enviar(dados) {
-    const existente = inspecoes.value.find(i => i.id === dados.id)
-    if (existente) {
-      Object.assign(existente, { ...dados, status: 'enviada', updatedAt: Date.now() })
-    } else {
-      inspecoes.value.unshift({ ...dados, id: nextId++, status: 'enviada', createdAt: Date.now(), updatedAt: Date.now() })
+  /** Envia para a API .NET (Oracle) e atualiza o store local */
+  async function enviar(dados) {
+    erro.value = null
+    loading.value = true
+    try {
+      let resultado
+      if (dados.chavePrimariaMa) {
+        // Já existe no servidor → atualiza
+        await api.atualizar(dados)
+        resultado = { ...dados, status: 'enviada', updatedAt: Date.now() }
+      } else {
+        // Novo registro → cria
+        resultado = await api.criar(dados)
+        resultado = { ...resultado, status: 'enviada' }
+      }
+
+      // Substitui o registro local pelo retorno da API
+      const idx = inspecoes.value.findIndex(i => i.id === dados.id)
+      if (idx >= 0) {
+        inspecoes.value.splice(idx, 1, resultado)
+      } else {
+        inspecoes.value.unshift(resultado)
+      }
+      persist()
+      return { sucesso: true, dado: resultado }
+    } catch (e) {
+      erro.value = e.message
+      // Fallback: salva localmente mesmo se a API falhar
+      const existente = inspecoes.value.find(i => i.id === dados.id)
+      if (existente) {
+        Object.assign(existente, { ...dados, status: 'enviada', updatedAt: Date.now() })
+      } else {
+        inspecoes.value.unshift({ ...dados, id: nextId++, status: 'enviada', createdAt: Date.now(), updatedAt: Date.now() })
+      }
+      persist()
+      return { sucesso: false, erroApi: e.message }
+    } finally {
+      loading.value = false
     }
+  }
+
+  /** Carrega formulários enviados do servidor e mescla com rascunhos locais */
+  async function carregarDoServidor() {
+    erro.value = null
+    loading.value = true
+    try {
+      const doServidor = await api.listar()
+      // Mantém rascunhos locais e substitui enviados pelos dados do servidor
+      const rascunhosLocais = inspecoes.value.filter(i => i.status === 'rascunho')
+      inspecoes.value = [...rascunhosLocais, ...doServidor]
+      persist()
+    } catch (e) {
+      erro.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /** Remove um formulário do Oracle e do store local */
+  async function excluir(id) {
+    erro.value = null
+    const item = inspecoes.value.find(i => i.id === id)
+    if (!item) return
+
+    if (item.chavePrimariaMa) {
+      try {
+        await api.excluir(item.chavePrimariaMa)
+      } catch (e) {
+        erro.value = e.message
+        return
+      }
+    }
+    inspecoes.value = inspecoes.value.filter(i => i.id !== id)
     persist()
   }
 
@@ -196,5 +265,9 @@ export const useInspecoesStore = defineStore('inspecoes', () => {
     localStorage.setItem(SEED_KEY, SEED_VERSION)
   }
 
-  return { inspecoes, total, enviadas, rascunhos, recentes, todas, ultimasPorFuncionario, salvarRascunho, enviar, porFuncionario }
+  return {
+    inspecoes, loading, erro,
+    total, enviadas, rascunhos, recentes, todas, ultimasPorFuncionario,
+    salvarRascunho, enviar, excluir, carregarDoServidor, porFuncionario,
+  }
 })
