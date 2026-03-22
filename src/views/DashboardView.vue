@@ -42,20 +42,30 @@
           <span class="card-resumo__label">Total</span>
         </div>
         <div class="card-resumo card-resumo--enviadas">
-          <span class="card-resumo__num">{{ enviadas }}</span>
-          <span class="card-resumo__label">Enviadas</span>
+          <span class="card-resumo__num">{{ sincronizadas }}</span>
+          <span class="card-resumo__label">Sincronizadas</span>
         </div>
         <div class="card-resumo card-resumo--rascunhos">
-          <span class="card-resumo__num">{{ rascunhos }}</span>
-          <span class="card-resumo__label">Rascunhos</span>
+          <span class="card-resumo__num">{{ pendentesSync }}</span>
+          <span class="card-resumo__label">Pendentes</span>
         </div>
+      </div>
+
+      <div class="dashboard__sync-panel">
+        <div>
+          <p class="dashboard__sync-title">Fila local</p>
+          <p class="dashboard__sync-sub">{{ pendentesSync }} item(ns) aguardando sincronizacao com a API.</p>
+        </div>
+        <button class="dashboard__sync-btn" :disabled="pendentesSync === 0 || !store.browserOnline" @click="sincronizarAgora">
+          Sincronizar agora
+        </button>
       </div>
 
       <!-- New inspection CTA -->
       <button
         class="dashboard__new-btn"
         aria-label="Iniciar nova inspeção ambiental"
-        @click="$router.push('/formulario')"
+        @click="novaInspecao()"
       >
         <div class="new-btn__icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
@@ -80,15 +90,18 @@
             <p>Nenhuma inspeção registrada ainda.</p>
           </div>
 
-          <button
+          <div
             v-for="ins in recentes"
-            :key="ins.id"
-            class="card-inspecao"
-            :class="`card-inspecao--${ins.status}`"
+            :key="ins.localId"
+            class="card-inspecao-wrap"
             role="listitem"
-            :aria-label="`FDC-EEA.EF – ${ins.nomeContratada || 'N/I'} em ${ins.estacao || ''}, ${ins.status}`"
-            @click="$router.push('/formulario')"
           >
+            <button
+              class="card-inspecao"
+              :class="`card-inspecao--${ins.status}`"
+              :aria-label="`FDC-EEA.EF – ${ins.nomeContratada || 'N/I'} em ${ins.estacao || ''}, ${ins.status}`"
+              @click="abrirInspecao(ins.localId)"
+            >
             <!-- Icon -->
             <div class="card-ins__icon icone-efluente" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8zm0 18c-3.35 0-6-2.57-6-6.2 0-2.34 1.95-5.44 6-9.14 4.05 3.7 6 6.79 6 9.14 0 3.63-2.65 6.2-6 6.2z"/></svg>
@@ -105,13 +118,23 @@
                 <StatusBadge :status="ins.status" />
                 <span class="card-ins__date">{{ formatDate(ins.updatedAt) }}</span>
               </div>
+              <p v-if="ins.lastError" class="card-ins__error">{{ ins.lastError }}</p>
             </div>
 
             <!-- Arrow -->
             <div class="card-ins__arrow" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
             </div>
-          </button>
+            </button>
+
+            <button
+              v-if="ins.syncStatus === 'erro_sync' || ins.syncStatus === 'pendente_sync'"
+              class="card-ins__retry"
+              @click="retryInspecao(ins.localId)"
+            >
+              Tentar novamente
+            </button>
+          </div>
 
         </div><!-- /list -->
       </section>
@@ -119,19 +142,18 @@
 
   </div><!-- /dashboard -->
 
-  <!-- Bottom navigation -->
-  <BottomNav active="dashboard" />
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useInspecoesStore } from '@/stores/inspecoes'
 import { useSaudacao } from '@/composables/useSaudacao'
 import LogoBadge from '@/components/LogoBadge.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
-import BottomNav from '@/components/BottomNav.vue'
 
+const router = useRouter()
 const auth = useAuthStore()
 const store = useInspecoesStore()
 const { saudacao } = useSaudacao()
@@ -143,9 +165,36 @@ const initials = computed(() => {
 })
 
 const total    = computed(() => store.total)
-const enviadas = computed(() => store.enviadas)
-const rascunhos = computed(() => store.rascunhos)
+const sincronizadas = computed(() => store.sincronizadas)
+const pendentesSync = computed(() => store.pendentesSync)
 const recentes = computed(() => store.recentes)
+
+onMounted(async () => {
+  await store.initialize()
+})
+
+function abrirInspecao(localId) {
+  router.push({ path: '/formulario', query: { localId } })
+}
+
+function novaInspecao() {
+  // Force reload after navigation so FormularioView always starts fresh
+  router.push('/formulario').then(() => window.location.reload())
+}
+
+async function sincronizarAgora() {
+  await store.sincronizarPendentes()
+  if (store.apiDisponivel) {
+    await store.carregarDoServidor()
+  }
+}
+
+async function retryInspecao(localId) {
+  await store.retryItem(localId)
+  if (store.apiDisponivel) {
+    await store.carregarDoServidor()
+  }
+}
 
 function formatDate(ts) {
   const d = new Date(ts)
@@ -304,6 +353,46 @@ function formatDate(ts) {
 .card-resumo--enviadas .card-resumo__num { color: var(--status-enviada); }
 .card-resumo--rascunhos .card-resumo__num { color: var(--status-rascunho); }
 
+.dashboard__sync-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-md);
+  background: var(--cptm-branco);
+  border: 1px solid var(--cptm-cinza-borda);
+  border-radius: var(--r-lg);
+  padding: var(--s-md);
+  margin-bottom: var(--s-lg);
+}
+
+.dashboard__sync-title {
+  font-size: var(--txt-sm);
+  font-weight: 800;
+  color: var(--cptm-cinza-escuro);
+  margin: 0 0 2px;
+}
+
+.dashboard__sync-sub {
+  font-size: var(--txt-xs);
+  color: var(--cptm-cinza-claro);
+  margin: 0;
+}
+
+.dashboard__sync-btn {
+  min-width: 136px;
+  height: 42px;
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--cptm-vermelho);
+  color: white;
+  font-size: var(--txt-sm);
+  font-weight: 700;
+}
+
+.dashboard__sync-btn:disabled {
+  opacity: .45;
+}
+
 /* New inspection button */
 .dashboard__new-btn {
   background: linear-gradient(135deg, var(--cptm-vermelho) 0%, var(--cptm-vermelho-escuro) 100%);
@@ -351,6 +440,12 @@ function formatDate(ts) {
 /* Inspection list */
 .inspection-list { display: flex; flex-direction: column; gap: var(--s-sm); }
 
+.card-inspecao-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .card-inspecao {
   background: var(--cptm-branco);
   border-radius: var(--r-lg);
@@ -368,8 +463,10 @@ function formatDate(ts) {
 .card-inspecao:active  { transform: scale(0.98); }
 .card-inspecao:hover   { box-shadow: var(--shadow-md); }
 .card-inspecao--rascunho { border-left: 4px solid var(--status-rascunho); }
-.card-inspecao--enviada  { border-left: 4px solid var(--status-enviada); }
-.card-inspecao--analisada{ border-left: 4px solid var(--status-analisada); }
+.card-inspecao--pendente_sync { border-left: 4px solid #f57f17; }
+.card-inspecao--sincronizando { border-left: 4px solid #1565c0; }
+.card-inspecao--sincronizado  { border-left: 4px solid var(--status-enviada); }
+.card-inspecao--erro_sync { border-left: 4px solid #c62828; }
 
 .card-ins__icon {
   width: 44px; height: 44px;
@@ -401,6 +498,23 @@ function formatDate(ts) {
   color: var(--cptm-cinza-claro);
   margin-bottom: 6px;
   display: flex; align-items: center; gap: 4px;
+}
+
+.card-ins__error {
+  margin-top: 6px;
+  font-size: var(--txt-xs);
+  color: #c62828;
+}
+
+.card-ins__retry {
+  align-self: flex-end;
+  border: 1px solid #c62828;
+  border-radius: var(--r-md);
+  background: white;
+  color: #c62828;
+  font-size: var(--txt-xs);
+  font-weight: 700;
+  padding: 10px 12px;
 }
 .card-ins__local svg { fill: var(--cptm-cinza-claro); flex-shrink: 0; }
 .card-ins__footer {

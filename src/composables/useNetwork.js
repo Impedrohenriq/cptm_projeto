@@ -1,18 +1,17 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useInspecoesStore } from '@/stores/inspecoes'
 
 export function useNetwork() {
-  const isOnline = ref(navigator.onLine)
-
-  function update() { isOnline.value = navigator.onLine }
+  const store = useInspecoesStore()
 
   onMounted(() => {
-    window.addEventListener('online', update)
-    window.addEventListener('offline', update)
-  })
-  onUnmounted(() => {
-    window.removeEventListener('online', update)
-    window.removeEventListener('offline', update)
+    store.initialize()
   })
 
-  return { isOnline }
+  return {
+    isOnline: computed(() => store.browserOnline),
+    apiDisponivel: computed(() => store.apiDisponivel),
+    pendentesSync: computed(() => store.pendentesSync),
+    syncing: computed(() => store.syncing),
+  }
 }

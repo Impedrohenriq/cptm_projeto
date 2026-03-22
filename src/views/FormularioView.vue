@@ -90,16 +90,16 @@
       </div>
     </footer>
 
-    <!-- Modal de sucesso -->
+    <!-- Modal de status -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showSuccess" class="fv-modal-overlay" role="dialog" aria-modal="true">
+        <div v-if="modalState.show" class="fv-modal-overlay" role="dialog" aria-modal="true">
           <div class="fv-modal-card">
             <div class="fv-modal-icon">
               <svg viewBox="0 0 24 24" fill="white" width="40" height="40"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             </div>
-            <h2 class="fv-modal-title">Inspeção Enviada!</h2>
-            <p class="fv-modal-desc">Registrada com sucesso e encaminhada para análise.</p>
+            <h2 class="fv-modal-title">{{ modalState.title }}</h2>
+            <p class="fv-modal-desc">{{ modalState.desc }}</p>
             <button class="fv-btn-ok" @click="voltarAoDashboard">Voltar ao Painel</button>
           </div>
         </div>
@@ -110,8 +110,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, markRaw, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, markRaw, computed, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useInspecoesStore } from '@/stores/inspecoes'
 import { useAuthStore } from '@/stores/auth'
 import EtapaTipo from '@/components/formulario/EtapaTipo.vue'
@@ -121,6 +121,7 @@ import EtapaEvidencias from '@/components/formulario/EtapaEvidencias.vue'
 import EtapaFinalizacao from '@/components/formulario/EtapaFinalizacao.vue'
 
 const router = useRouter()
+const route = useRoute()
 const store  = useInspecoesStore()
 const auth   = useAuthStore()
 
@@ -136,7 +137,9 @@ const totalEtapas  = etapas.length
 const etapaAtual   = ref(0)
 const transitionDir = ref('slide-next')
 const autoSaved    = ref(false)
-const showSuccess  = ref(false)
+const currentLocalId = ref(null)
+const carregandoFormulario = ref(true)
+const modalState = reactive({ show: false, title: '', desc: '' })
 
 const progressPct = computed(() => (etapaAtual.value / (totalEtapas - 1)) * 100)
 
@@ -150,30 +153,40 @@ const etapaValida = computed(() => {
   }
 })
 
-const dados = reactive({
-  nomeContratada: '', numContrato: '', localEscopo: '',
-  representante: '', siglaArea: '', nomeAreaGestora: '', nomeSupervisora: '',
-  autorCadastro: '', responsavelTecnico: '', registroProfissional: '', docRT: '',
-  naturezaPGA: '', dataEmissao: '', numFormulario: '', autorFormulario: '',
-  dataCadastramento: new Date().toISOString().slice(0, 10),
-  horaCadastramento: new Date().toTimeString().slice(0, 5),
-  emNumero: '', emNome: '',
-  municipio: '', linha: '', estacao: '', via: '',
-  trechoSentido: '', kmPoste: '', latitude: null, longitude: null,
-  tipoAtividadeListada: '', tipoAtividadeNaoListada: '',
-  tipoDRAListado: '', tipoDRANaoListado: '',
-  codigoDRA: '', dataValidadeDRA: '',
-  tipoAtividadeCPTM: '', nomeLocal: '', complementoLocal: '',
-  origemEfluente: '', fonteGeradora: '',
-  quantidadeLitros: '', tipoDestinacao: '', tipoVeiculo: '',
-  placaVeiculo: '', codigoGuiaRemessa: '',
-  distanciaVia: '', observacoesGerais: '',
-  fotos: [],
-})
+function criarDadosIniciais() {
+  return {
+    nomeContratada: '', numContrato: '', localEscopo: '',
+    representante: '', siglaArea: '', nomeAreaGestora: '', idAreaGestora: '', siglaAreaGestora: '', nomeSupervisora: '',
+    autorCadastro: '', responsavelTecnico: '', registroProfissional: '', docRT: '',
+    naturezaPGA: '', dataEmissao: '', numFormulario: '', autorFormulario: '', nomeArquivoFdc: '', codigoArquivoFdc: '',
+    dataCadastramento: new Date().toISOString().slice(0, 10),
+    horaCadastramento: new Date().toTimeString().slice(0, 5),
+    emNumero: '', emNome: '',
+    municipio: '', linha: '', estacao: '', via: '',
+    trechoSentido: '', kmPoste: '', latitude: null, longitude: null,
+    tipoAtividadeListada: '', tipoAtividadeNaoListada: '',
+    tipoDRAListado: '', tipoDRANaoListado: '',
+    codigoDRA: '', dataValidadeDRA: '',
+    tipoAtividadeCPTM: '', nomeLocal: '', complementoLocal: '',
+    origemEfluente: '', fonteGeradora: '',
+    quantidadeLitros: '', tipoDestinacao: '', tipoVeiculo: '',
+    placaVeiculo: '', codigoGuiaRemessa: '',
+    distanciaVia: '', observacoesGerais: '',
+    fotos: [],
+  }
+}
+
+const dados = reactive(criarDadosIniciais())
 
 function dadosComFuncionario() {
   const u = auth.currentUser
-  return { ...dados, funcionarioId: u?.id || 'desconhecido', funcionarioNome: u?.name || 'Desconhecido', funcionarioInitials: u?.initials || '??' }
+  return {
+    ...dados,
+    localId: currentLocalId.value,
+    funcionarioId: u?.id || 'desconhecido',
+    funcionarioNome: u?.name || 'Desconhecido',
+    funcionarioInitials: u?.initials || '??',
+  }
 }
 
 function handleBack() { etapaAtual.value === 0 ? router.back() : goBack() }
@@ -183,17 +196,84 @@ function irParaEtapa(i) { transitionDir.value = i < etapaAtual.value ? 'slide-pr
 
 let autoSaveTimer = null
 watch(dados, () => {
+  if (carregandoFormulario.value) return
   clearTimeout(autoSaveTimer)
-  autoSaveTimer = setTimeout(() => {
-    store.salvarRascunho(dadosComFuncionario())
+  autoSaveTimer = setTimeout(async () => {
+    const salvo = await store.salvarRascunho(dadosComFuncionario())
+    currentLocalId.value = salvo.localId
     autoSaved.value = true
     setTimeout(() => { autoSaved.value = false }, 2000)
-  }, 3000)
+  }, 1200)
 }, { deep: true })
 
-function salvarRascunho() { store.salvarRascunho(dadosComFuncionario()); router.replace('/dashboard') }
-function enviarInspecao()  { store.enviar(dadosComFuncionario()); showSuccess.value = true }
-function voltarAoDashboard() { router.replace('/dashboard') }
+function aplicarDados(item) {
+  const defaults = criarDadosIniciais()
+  for (const key of Object.keys(defaults)) {
+    dados[key] = item?.[key] ?? defaults[key]
+  }
+}
+
+async function carregarFormularioDaRota() {
+  const localId = typeof route.query.localId === 'string' ? route.query.localId : null
+
+  if (!localId) {
+    return
+  }
+
+  const item = await store.carregarPorLocalId(localId)
+  if (item) {
+    currentLocalId.value = item.localId
+    aplicarDados(item)
+  }
+}
+
+onMounted(async () => {
+  try {
+    await store.initialize()
+    await carregarFormularioDaRota()
+  } finally {
+    carregandoFormulario.value = false
+  }
+})
+
+watch(
+  () => route.query.localId,
+  async (newLocalId, oldLocalId) => {
+    if (!newLocalId || newLocalId === oldLocalId || carregandoFormulario.value) return
+    await carregarFormularioDaRota()
+  }
+)
+
+async function salvarRascunho() {
+  const salvo = await store.salvarRascunho(dadosComFuncionario())
+  currentLocalId.value = salvo.localId
+  await router.replace({ path: '/formulario', query: { localId: salvo.localId } })
+  await router.replace('/dashboard')
+}
+
+async function enviarInspecao()  {
+  const resultado = await store.enfileirarParaSync(dadosComFuncionario())
+
+  currentLocalId.value = resultado.local?.localId ?? currentLocalId.value
+  if (currentLocalId.value && route.query.localId !== currentLocalId.value) {
+    await router.replace({ path: '/formulario', query: { localId: currentLocalId.value } })
+  }
+
+  if (resultado.sucesso) {
+    modalState.title = 'Inspecao sincronizada'
+    modalState.desc = 'A API confirmou o recebimento e o item ja foi persistido no backend e no Oracle.'
+  } else {
+    modalState.title = 'Inspecao na fila local'
+    modalState.desc = resultado.mensagem ?? 'Os dados ficaram salvos no dispositivo e serao reenviados automaticamente quando a conectividade voltar.'
+  }
+
+  modalState.show = true
+}
+
+function voltarAoDashboard() {
+  modalState.show = false
+  router.replace('/dashboard')
+}
 </script>
 
 <style scoped>
@@ -310,7 +390,7 @@ function voltarAoDashboard() { router.replace('/dashboard') }
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--h-btn) + 32px + var(--safe-bottom));
+  padding-bottom: calc(var(--h-btn) + var(--bottom-nav-h) + 44px + var(--safe-bottom));
 }
 
 /* ====================================================
@@ -318,7 +398,8 @@ function voltarAoDashboard() { router.replace('/dashboard') }
    ==================================================== */
 .fv-footer {
   position: fixed;
-  bottom: 0; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 8px);
+  left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 480px;
   background: var(--cptm-branco);
   border-top: 1px solid var(--cptm-cinza-borda);

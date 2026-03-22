@@ -1,273 +1,714 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import * as api from '@/services/api.js'
+import {
+  bulkPutInspectionRecords,
+  deleteInspectionRecord,
+  deleteQueuedItem,
+  findInspectionByChave,
+  getInspectionRecord,
+  getMetaValue,
+  listInspectionRecords,
+  listQueuedItems,
+  openDb,
+  putInspectionRecord,
+  putQueuedItem,
+  setMetaValue,
+} from '@/services/offlineDb.js'
+import {
+  attachPreviewUrls,
+  base64ToBlob,
+  normalizePayloadForStorage,
+  revokePreviewUrls,
+} from '@/services/offlineMedia.js'
+import {
+  syncInspectionRecord,
+  toSyncErrorMessage,
+} from '@/services/syncEngine.js'
 
-const INSPECOES_KEY = 'cptm_inspecoes'
-const SEED_VERSION  = 'v4'
-const SEED_KEY      = 'cptm_inspecoes_seed'
+const LEGACY_INSPECOES_KEY = 'cptm_inspecoes'
+const MIGRATION_META_KEY = 'legacy-inspections-migrated'
 
-let nextId = Date.now()
+export const SYNC_STATUS = {
+  DRAFT: 'rascunho',
+  PENDING: 'pendente_sync',
+  SYNCING: 'sincronizando',
+  SYNCED: 'sincronizado',
+  ERROR: 'erro_sync',
+}
 
-function loadInspecoes() {
-  try {
-    return JSON.parse(localStorage.getItem(INSPECOES_KEY) || '[]')
-  } catch {
-    return []
+function gerarLocalId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+
+  return `local-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`
+}
+
+function clone(value) {
+  return structuredClone(value)
+}
+
+function sortByUpdatedAt(items) {
+  return [...items].sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))
+}
+
+function mapLegacyStatus(status, item) {
+  if (status === 'rascunho') return SYNC_STATUS.DRAFT
+  if (item?._fromApi) return SYNC_STATUS.SYNCED
+  if (item?.chavePrimariaMa) return SYNC_STATUS.ERROR
+  if (status === 'enviada' || status === 'analisada') return SYNC_STATUS.PENDING
+  return SYNC_STATUS.DRAFT
+}
+
+function makeQueueItem(record) {
+  return {
+    localId: record.localId,
+    chavePrimariaMa: record.chavePrimariaMa,
+    pendingOperation: record.pendingOperation,
+    syncStatus: record.syncStatus,
+    queuedAt: record.queueUpdatedAt ?? record.updatedAt,
+    retryCount: record.retryCount,
   }
 }
 
+function payloadFromItem(item) {
+  const {
+    id,
+    localId,
+    syncStatus,
+    status,
+    retryCount,
+    lastError,
+    createdAt,
+    updatedAt,
+    syncedAt,
+    serverConfirmed,
+    pendingOperation,
+    photosHydrated,
+    queueUpdatedAt,
+    ...payload
+  } = item
+
+  return payload
+}
+
+function resolveServerTimestamp(payload) {
+  if (typeof payload?.uploadedAt === 'number' && Number.isFinite(payload.uploadedAt)) {
+    return payload.uploadedAt
+  }
+
+  return Date.now()
+}
+
+function materializeRecord(record) {
+  const payload = attachPreviewUrls(clone(record.payload))
+
+  return {
+    ...payload,
+    id: record.localId,
+    localId: record.localId,
+    chavePrimariaMa: record.chavePrimariaMa,
+    syncStatus: record.syncStatus,
+    status: record.syncStatus,
+    retryCount: record.retryCount,
+    lastError: record.lastError,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    syncedAt: record.syncedAt,
+    serverConfirmed: record.serverConfirmed,
+    pendingOperation: record.pendingOperation,
+    photosHydrated: record.photosHydrated,
+  }
+}
+
+async function hydrateServerPayload(serverItem) {
+  const payload = clone(serverItem)
+
+  if (payload.fotos?.length) {
+    payload.fotos = payload.fotos.map((foto) => ({
+      ...foto,
+      blob: foto.base64 ? base64ToBlob(foto.base64, foto.type) : null,
+    }))
+  }
+
+  return normalizePayloadForStorage(payload)
+}
+
 export const useInspecoesStore = defineStore('inspecoes', () => {
-  const inspecoes = ref(loadInspecoes())
+  const inspecoes = ref([])
   const loading = ref(false)
   const erro = ref(null)
+  const initialized = ref(false)
+  const syncing = ref(false)
+  const apiDisponivel = ref(false)
+  const browserOnline = ref(typeof navigator !== 'undefined' ? navigator.onLine : true)
+  const filaPendencias = ref([])
+
+  let initPromise = null
+  let listenersRegistered = false
 
   const total = computed(() => inspecoes.value.length)
-  const enviadas = computed(() => inspecoes.value.filter(i => i.status === 'enviada').length)
-  const rascunhos = computed(() => inspecoes.value.filter(i => i.status === 'rascunho').length)
-  const recentes = computed(() => [...inspecoes.value].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 10))
-
-  // For gestor: all inspections sorted by date
-  const todas = computed(() => [...inspecoes.value].sort((a, b) => b.updatedAt - a.updatedAt))
-
-  // For gestor: last inspection per employee
+  const sincronizadas = computed(() => inspecoes.value.filter((item) => item.syncStatus === SYNC_STATUS.SYNCED).length)
+  const enviadas = computed(() => sincronizadas.value)
+  const rascunhos = computed(() => inspecoes.value.filter((item) => item.syncStatus === SYNC_STATUS.DRAFT).length)
+  const pendentesSync = computed(() => inspecoes.value.filter((item) => [SYNC_STATUS.PENDING, SYNC_STATUS.ERROR, SYNC_STATUS.SYNCING].includes(item.syncStatus)).length)
+  const recentes = computed(() => sortByUpdatedAt(inspecoes.value).slice(0, 10))
+  const todas = computed(() => sortByUpdatedAt(inspecoes.value))
   const ultimasPorFuncionario = computed(() => {
     const mapa = new Map()
-    for (const ins of todas.value) {
-      const chave = ins.funcionarioId || 'desconhecido'
-      if (!mapa.has(chave)) mapa.set(chave, ins)
+
+    for (const inspecao of todas.value) {
+      const chave = inspecao.funcionarioId || 'desconhecido'
+      if (!mapa.has(chave)) {
+        mapa.set(chave, inspecao)
+      }
     }
+
     return [...mapa.values()]
   })
 
-  function persist() {
-    localStorage.setItem(INSPECOES_KEY, JSON.stringify(inspecoes.value))
-  }
-
-  function salvarRascunho(dados) {
-    const existente = inspecoes.value.find(i => i.id === dados.id)
-    if (existente) {
-      Object.assign(existente, { ...dados, status: 'rascunho', updatedAt: Date.now() })
-    } else {
-      inspecoes.value.unshift({ ...dados, id: nextId++, status: 'rascunho', createdAt: Date.now(), updatedAt: Date.now() })
+  function atualizarLista(records) {
+    for (const item of inspecoes.value) {
+      revokePreviewUrls(item)
     }
-    persist()
+
+    inspecoes.value = records.map(materializeRecord)
   }
 
-  /** Envia para a API .NET (Oracle) e atualiza o store local */
-  async function enviar(dados) {
-    erro.value = null
-    loading.value = true
+  async function recarregarDoIndexedDb() {
+    const [records, queue] = await Promise.all([
+      listInspectionRecords(),
+      listQueuedItems(),
+    ])
+
+    filaPendencias.value = queue
+    atualizarLista(records)
+    return records
+  }
+
+  function criarRegistroBase(payload, overrides = {}, existingRecord = null) {
+    const now = Date.now()
+    const serverConfirmed = overrides.serverConfirmed ?? existingRecord?.serverConfirmed ?? false
+
+    return {
+      localId: existingRecord?.localId ?? overrides.localId ?? gerarLocalId(),
+      chavePrimariaMa: payload.chavePrimariaMa,
+      payload,
+      syncStatus: overrides.syncStatus ?? existingRecord?.syncStatus ?? SYNC_STATUS.DRAFT,
+      pendingOperation: overrides.pendingOperation ?? existingRecord?.pendingOperation ?? (serverConfirmed ? 'update' : 'create'),
+      retryCount: overrides.retryCount ?? existingRecord?.retryCount ?? 0,
+      lastError: overrides.lastError ?? existingRecord?.lastError ?? null,
+      createdAt: existingRecord?.createdAt ?? overrides.createdAt ?? now,
+      updatedAt: overrides.updatedAt ?? now,
+      syncedAt: overrides.syncedAt ?? existingRecord?.syncedAt ?? null,
+      serverConfirmed,
+      photosHydrated: overrides.photosHydrated ?? existingRecord?.photosHydrated ?? true,
+      queueUpdatedAt: overrides.queueUpdatedAt ?? existingRecord?.queueUpdatedAt ?? now,
+    }
+  }
+
+  async function salvarRegistro(record, { manterNaFila = false, removerDaFila = false } = {}) {
+    await putInspectionRecord(record)
+
+    if (removerDaFila) {
+      await deleteQueuedItem(record.localId)
+    } else if (manterNaFila) {
+      await putQueuedItem(makeQueueItem(record))
+    }
+
+    await recarregarDoIndexedDb()
+    return materializeRecord(record)
+  }
+
+  async function marcarApiDisponivel() {
     try {
-      let resultado
-      if (dados.chavePrimariaMa) {
-        // Já existe no servidor → atualiza
-        await api.atualizar(dados)
-        resultado = { ...dados, status: 'enviada', updatedAt: Date.now() }
-      } else {
-        // Novo registro → cria
-        resultado = await api.criar(dados)
-        resultado = { ...resultado, status: 'enviada' }
-      }
-
-      // Substitui o registro local pelo retorno da API
-      const idx = inspecoes.value.findIndex(i => i.id === dados.id)
-      if (idx >= 0) {
-        inspecoes.value.splice(idx, 1, resultado)
-      } else {
-        inspecoes.value.unshift(resultado)
-      }
-      persist()
-      return { sucesso: true, dado: resultado }
-    } catch (e) {
-      erro.value = e.message
-      // Fallback: salva localmente mesmo se a API falhar
-      const existente = inspecoes.value.find(i => i.id === dados.id)
-      if (existente) {
-        Object.assign(existente, { ...dados, status: 'enviada', updatedAt: Date.now() })
-      } else {
-        inspecoes.value.unshift({ ...dados, id: nextId++, status: 'enviada', createdAt: Date.now(), updatedAt: Date.now() })
-      }
-      persist()
-      return { sucesso: false, erroApi: e.message }
-    } finally {
-      loading.value = false
+      await api.healthCheck()
+      apiDisponivel.value = true
+      return true
+    } catch {
+      apiDisponivel.value = false
+      return false
     }
   }
 
-  /** Carrega formulários enviados do servidor e mescla com rascunhos locais */
-  async function carregarDoServidor() {
-    erro.value = null
-    loading.value = true
+  function registrarListeners() {
+    if (listenersRegistered || typeof window === 'undefined') return
+
+    const onOnline = async () => {
+      browserOnline.value = true
+      if (await marcarApiDisponivel()) {
+        await sincronizarPendentes({ silencioso: true })
+      }
+    }
+
+    const onOffline = () => {
+      browserOnline.value = false
+      apiDisponivel.value = false
+    }
+
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    listenersRegistered = true
+  }
+
+  async function migrarLocalStorageLegado() {
+    const migrated = await getMetaValue(MIGRATION_META_KEY)
+    if (migrated) return
+
+    const legacyRaw = localStorage.getItem(LEGACY_INSPECOES_KEY)
+    if (!legacyRaw) {
+      await setMetaValue(MIGRATION_META_KEY, true)
+      return
+    }
+
     try {
-      const doServidor = await api.listar()
-      // Mantém rascunhos locais e substitui enviados pelos dados do servidor
-      const rascunhosLocais = inspecoes.value.filter(i => i.status === 'rascunho')
-      inspecoes.value = [...rascunhosLocais, ...doServidor]
-      persist()
-    } catch (e) {
-      erro.value = e.message
-    } finally {
-      loading.value = false
-    }
-  }
-
-  /** Remove um formulário do Oracle e do store local */
-  async function excluir(id) {
-    erro.value = null
-    const item = inspecoes.value.find(i => i.id === id)
-    if (!item) return
-
-    if (item.chavePrimariaMa) {
-      try {
-        await api.excluir(item.chavePrimariaMa)
-      } catch (e) {
-        erro.value = e.message
+      const legacyItems = JSON.parse(legacyRaw)
+      if (!Array.isArray(legacyItems) || legacyItems.length === 0) {
+        await setMetaValue(MIGRATION_META_KEY, true)
         return
       }
+
+      const records = []
+
+      for (const legacyItem of legacyItems) {
+        const payload = await normalizePayloadForStorage({
+          ...payloadFromItem(legacyItem),
+          chavePrimariaMa: api.buildChavePrimariaMa(legacyItem),
+        })
+
+        const syncStatus = mapLegacyStatus(legacyItem.status, legacyItem)
+        const serverConfirmed = syncStatus === SYNC_STATUS.SYNCED
+
+        records.push({
+          localId: String(legacyItem.id ?? gerarLocalId()),
+          chavePrimariaMa: payload.chavePrimariaMa,
+          payload,
+          syncStatus,
+          pendingOperation: serverConfirmed ? 'update' : 'create',
+          retryCount: legacyItem.retryCount ?? 0,
+          lastError: serverConfirmed ? null : legacyItem.erroApi ?? null,
+          createdAt: legacyItem.createdAt ?? Date.now(),
+          updatedAt: legacyItem.updatedAt ?? Date.now(),
+          syncedAt: serverConfirmed ? (legacyItem.updatedAt ?? Date.now()) : null,
+          serverConfirmed,
+          photosHydrated: true,
+          queueUpdatedAt: legacyItem.updatedAt ?? Date.now(),
+        })
+      }
+
+      await bulkPutInspectionRecords(records)
+
+      for (const record of records.filter((item) => item.syncStatus !== SYNC_STATUS.SYNCED)) {
+        await putQueuedItem(makeQueueItem(record))
+      }
+
+      localStorage.removeItem(LEGACY_INSPECOES_KEY)
+    } finally {
+      await setMetaValue(MIGRATION_META_KEY, true)
     }
-    inspecoes.value = inspecoes.value.filter(i => i.id !== id)
-    persist()
+  }
+
+  async function initialize() {
+    if (initialized.value) return
+    if (initPromise) return initPromise
+
+    initPromise = (async () => {
+      await openDb()
+      await migrarLocalStorageLegado()
+      await recarregarDoIndexedDb()
+      browserOnline.value = navigator.onLine
+      await marcarApiDisponivel().catch(() => false)
+      registrarListeners()
+      initialized.value = true
+
+      if (browserOnline.value && apiDisponivel.value) {
+        await sincronizarPendentes({ silencioso: true })
+      }
+    })()
+
+    try {
+      await initPromise
+    } finally {
+      initPromise = null
+    }
+  }
+
+  async function persistirItem(item, overrides = {}, options = {}) {
+    const existingRecord = item.localId
+      ? await getInspectionRecord(item.localId)
+      : (item.chavePrimariaMa ? await findInspectionByChave(item.chavePrimariaMa) : null)
+
+    const payload = await normalizePayloadForStorage({
+      ...payloadFromItem(item),
+      chavePrimariaMa: item.chavePrimariaMa ?? existingRecord?.chavePrimariaMa ?? api.buildChavePrimariaMa(item),
+    })
+
+    const record = criarRegistroBase(payload, overrides, existingRecord)
+    return salvarRegistro(record, options)
+  }
+
+  async function salvarRascunho(dados) {
+    await initialize()
+    erro.value = null
+
+    return persistirItem(
+      dados,
+      {
+        syncStatus: SYNC_STATUS.DRAFT,
+        lastError: null,
+      },
+      {
+        removerDaFila: true,
+      },
+    )
+  }
+
+  async function enfileirarParaSync(dados) {
+    await initialize()
+    erro.value = null
+
+    const registro = await persistirItem(
+      dados,
+      {
+        syncStatus: SYNC_STATUS.PENDING,
+        lastError: null,
+        queueUpdatedAt: Date.now(),
+      },
+      {
+        manterNaFila: true,
+      },
+    )
+
+    if (!navigator.onLine) {
+      apiDisponivel.value = false
+      return {
+        sucesso: false,
+        queued: true,
+        local: registro,
+        mensagem: 'Inspecao salva no dispositivo e adicionada a fila local.',
+      }
+    }
+
+    if (!await marcarApiDisponivel()) {
+      return {
+        sucesso: false,
+        queued: true,
+        local: registro,
+        mensagem: 'API indisponivel. O item ficou pendente de sincronizacao.',
+      }
+    }
+
+    const syncResult = await retryItem(registro.localId, { silencioso: true })
+    return { ...syncResult, local: registro }
+  }
+
+  async function hydrateInspection(localId) {
+    await initialize()
+    const record = await getInspectionRecord(localId)
+    if (!record) return null
+
+    if (!record.serverConfirmed || record.photosHydrated || !record.chavePrimariaMa) {
+      return materializeRecord(record)
+    }
+
+    if (!navigator.onLine || !await marcarApiDisponivel()) {
+      return materializeRecord(record)
+    }
+
+    const serverItem = await api.buscarPorChave(record.chavePrimariaMa)
+    const payload = await hydrateServerPayload({
+      ...serverItem,
+      funcionarioId: record.payload.funcionarioId,
+      funcionarioNome: record.payload.funcionarioNome,
+      funcionarioInitials: record.payload.funcionarioInitials,
+    })
+
+    const hydratedRecord = criarRegistroBase(payload, {
+      syncStatus: record.syncStatus,
+      pendingOperation: record.pendingOperation,
+      retryCount: record.retryCount,
+      lastError: record.lastError,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      syncedAt: record.syncedAt,
+      serverConfirmed: true,
+      photosHydrated: true,
+    }, record)
+
+    await putInspectionRecord(hydratedRecord)
+    await recarregarDoIndexedDb()
+    return materializeRecord(hydratedRecord)
+  }
+
+  async function sincronizarPendentes({ localId = null, silencioso = false } = {}) {
+    await initialize()
+
+    if (syncing.value && !localId) {
+      return { sucesso: false, mensagem: 'Sincronizacao ja em andamento.' }
+    }
+
+    if (!navigator.onLine) {
+      apiDisponivel.value = false
+      return { sucesso: false, mensagem: 'Sem conectividade com a internet.' }
+    }
+
+    if (!await marcarApiDisponivel()) {
+      return { sucesso: false, mensagem: 'API indisponivel no momento.' }
+    }
+
+    syncing.value = true
+    loading.value = !silencioso
+    erro.value = null
+
+    try {
+      const queue = await listQueuedItems()
+      const pendentes = localId ? queue.filter((item) => item.localId === localId) : queue
+      const resultados = []
+
+      for (const item of pendentes) {
+        const record = await getInspectionRecord(item.localId)
+        if (!record) {
+          await deleteQueuedItem(item.localId)
+          continue
+        }
+
+        const syncingRecord = criarRegistroBase(record.payload, {
+          syncStatus: SYNC_STATUS.SYNCING,
+          lastError: null,
+          retryCount: record.retryCount,
+          createdAt: record.createdAt,
+          updatedAt: Date.now(),
+          syncedAt: record.syncedAt,
+          serverConfirmed: record.serverConfirmed,
+          pendingOperation: record.pendingOperation,
+          photosHydrated: record.photosHydrated,
+        }, record)
+
+        await salvarRegistro(syncingRecord, { manterNaFila: true })
+
+        try {
+          let sourceRecord = syncingRecord
+
+          if (sourceRecord.serverConfirmed && !sourceRecord.photosHydrated && sourceRecord.chavePrimariaMa) {
+            const serverItem = await api.buscarPorChave(sourceRecord.chavePrimariaMa)
+            const payload = await hydrateServerPayload({
+              ...serverItem,
+              ...sourceRecord.payload,
+              funcionarioId: sourceRecord.payload.funcionarioId,
+              funcionarioNome: sourceRecord.payload.funcionarioNome,
+              funcionarioInitials: sourceRecord.payload.funcionarioInitials,
+              fotos: sourceRecord.payload.fotos?.length ? sourceRecord.payload.fotos : serverItem.fotos,
+            })
+
+            sourceRecord = criarRegistroBase(payload, {
+              syncStatus: SYNC_STATUS.SYNCING,
+              retryCount: sourceRecord.retryCount,
+              createdAt: sourceRecord.createdAt,
+              updatedAt: sourceRecord.updatedAt,
+              syncedAt: sourceRecord.syncedAt,
+              serverConfirmed: true,
+              pendingOperation: sourceRecord.pendingOperation,
+              photosHydrated: true,
+            }, sourceRecord)
+
+            await putInspectionRecord(sourceRecord)
+          }
+
+          const { syncedPayload, resolvedOperation } = await syncInspectionRecord(materializeRecord(sourceRecord))
+          const payload = await hydrateServerPayload({
+            ...syncedPayload,
+            funcionarioId: sourceRecord.payload.funcionarioId,
+            funcionarioNome: sourceRecord.payload.funcionarioNome,
+            funcionarioInitials: sourceRecord.payload.funcionarioInitials,
+          })
+
+          const syncedRecord = criarRegistroBase(payload, {
+            syncStatus: SYNC_STATUS.SYNCED,
+            pendingOperation: resolvedOperation,
+            retryCount: sourceRecord.retryCount,
+            lastError: null,
+            createdAt: sourceRecord.createdAt,
+            updatedAt: resolveServerTimestamp(payload),
+            syncedAt: resolveServerTimestamp(payload),
+            serverConfirmed: true,
+            photosHydrated: true,
+          }, sourceRecord)
+
+          await salvarRegistro(syncedRecord, { removerDaFila: true })
+          resultados.push({ localId: syncedRecord.localId, sucesso: true })
+        } catch (syncError) {
+          const failedRecord = criarRegistroBase(record.payload, {
+            syncStatus: SYNC_STATUS.ERROR,
+            pendingOperation: record.pendingOperation,
+            retryCount: record.retryCount + 1,
+            lastError: toSyncErrorMessage(syncError),
+            createdAt: record.createdAt,
+            updatedAt: Date.now(),
+            syncedAt: record.syncedAt,
+            serverConfirmed: record.serverConfirmed,
+            photosHydrated: record.photosHydrated,
+          }, record)
+
+          await salvarRegistro(failedRecord, { manterNaFila: true })
+          resultados.push({ localId: failedRecord.localId, sucesso: false, erro: failedRecord.lastError })
+        }
+      }
+
+      return { sucesso: resultados.every((item) => item.sucesso), resultados }
+    } finally {
+      syncing.value = false
+      loading.value = false
+    }
+  }
+
+  async function retryItem(localId, options = {}) {
+    return sincronizarPendentes({ localId, ...options })
+  }
+
+  async function reconciliarLocalComServidor(itensServidor) {
+    await initialize()
+    const records = await listInspectionRecords()
+    const byChave = new Map(records.filter((item) => item.chavePrimariaMa).map((item) => [item.chavePrimariaMa, item]))
+    const serverChaves = new Set(itensServidor.map((item) => item.chavePrimariaMa).filter(Boolean))
+    const updates = []
+
+    // Remove itens sincronizados que nao existem mais no servidor.
+    for (const localRecord of records) {
+      const hasRemoteKey = Boolean(localRecord.chavePrimariaMa)
+      const isSynced = localRecord.syncStatus === SYNC_STATUS.SYNCED
+      const missingOnServer = hasRemoteKey && !serverChaves.has(localRecord.chavePrimariaMa)
+
+      if (localRecord.serverConfirmed && isSynced && missingOnServer) {
+        await deleteInspectionRecord(localRecord.localId)
+      }
+    }
+
+    for (const serverItem of itensServidor) {
+      const payload = await hydrateServerPayload(serverItem)
+      const localRecord = byChave.get(payload.chavePrimariaMa)
+
+      if (!localRecord) {
+        const serverTimestamp = resolveServerTimestamp(payload)
+        updates.push(criarRegistroBase(payload, {
+          syncStatus: SYNC_STATUS.SYNCED,
+          pendingOperation: 'update',
+          retryCount: 0,
+          lastError: null,
+          createdAt: serverTimestamp,
+          updatedAt: serverTimestamp,
+          syncedAt: serverTimestamp,
+          serverConfirmed: true,
+          photosHydrated: payload.fotos?.length > 0,
+        }))
+        continue
+      }
+
+      const possuiMudancaLocal = [SYNC_STATUS.PENDING, SYNC_STATUS.SYNCING, SYNC_STATUS.ERROR].includes(localRecord.syncStatus)
+
+      if (possuiMudancaLocal || localRecord.syncStatus === SYNC_STATUS.DRAFT) {
+        updates.push(criarRegistroBase(localRecord.payload, {
+          syncStatus: localRecord.syncStatus,
+          pendingOperation: localRecord.pendingOperation,
+          retryCount: localRecord.retryCount,
+          lastError: localRecord.lastError,
+          createdAt: localRecord.createdAt,
+          updatedAt: localRecord.updatedAt,
+          syncedAt: localRecord.syncedAt,
+          serverConfirmed: true,
+          photosHydrated: localRecord.photosHydrated,
+        }, localRecord))
+        continue
+      }
+
+      const serverTimestamp = resolveServerTimestamp(payload)
+      updates.push(criarRegistroBase(payload, {
+        syncStatus: SYNC_STATUS.SYNCED,
+        pendingOperation: 'update',
+        retryCount: 0,
+        lastError: null,
+        createdAt: localRecord.createdAt,
+        updatedAt: serverTimestamp,
+        syncedAt: serverTimestamp,
+        serverConfirmed: true,
+        photosHydrated: payload.fotos?.length > 0,
+      }, localRecord))
+    }
+
+    if (updates.length) {
+      await bulkPutInspectionRecords(updates)
+      await recarregarDoIndexedDb()
+    }
+  }
+
+  async function carregarDoServidor() {
+    await initialize()
+    loading.value = true
+    erro.value = null
+
+    try {
+      const itensServidor = await api.listar()
+      apiDisponivel.value = true
+      await reconciliarLocalComServidor(itensServidor)
+    } catch (error) {
+      erro.value = error.message
+      apiDisponivel.value = false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function excluir(localId) {
+    await initialize()
+    erro.value = null
+
+    const item = inspecoes.value.find((inspecao) => inspecao.localId === localId)
+    if (!item) return
+
+    if (item.serverConfirmed && item.chavePrimariaMa && navigator.onLine && await marcarApiDisponivel()) {
+      await api.excluir(item.chavePrimariaMa)
+    }
+
+    await deleteInspectionRecord(localId)
+    await recarregarDoIndexedDb()
   }
 
   function porFuncionario(funcionarioId) {
-    return [...inspecoes.value]
-      .filter(i => i.funcionarioId === funcionarioId)
-      .sort((a, b) => b.updatedAt - a.updatedAt)
+    return sortByUpdatedAt(inspecoes.value.filter((item) => item.funcionarioId === funcionarioId))
   }
 
-  // Seed with demo data if empty OR seed version changed
-  if (inspecoes.value.length === 0 || localStorage.getItem(SEED_KEY) !== SEED_VERSION) {
-    const now = Date.now()
-    inspecoes.value = [
-      // Carlos Silva – L7-Rubi
-      {
-        id: 1, funcionarioId: 'u1', funcionarioNome: 'Carlos Silva', funcionarioInitials: 'CS',
-        nomeContratada: 'Construtora Alpha Ltda', numContrato: '001/2025',
-        localEscopo: 'Linha 7-Rubi – Trecho Várzea Paulista',
-        autorCadastro: 'Carlos Silva', responsavelTecnico: 'Eng. Marcos Lima',
-        naturezaPGA: 'Efluentes', dataEmissao: '2025-02-10', numFormulario: 1,
-        autorFormulario: 'Carlos Silva',
-        dataCadastramento: '2025-02-10', horaCadastramento: '08:30',
-        emNumero: 7, emNome: 'E.M. Várzea Paulista',
-        municipio: 'Várzea Paulista', linha: 'Linha 7-Rubi', estacao: 'Várzea Paulista',
-        origemEfluente: 'Doméstico', fonteGeradora: 'Banheiro químico',
-        quantidadeLitros: 500, tipoDestinacao: 'Interligação em rede coletora',
-        observacoesGerais: 'Mancha visível próxima à via permanente.',
-        fotos: [], status: 'rascunho', createdAt: now - 3600000, updatedAt: now - 3600000,
-      },
-      {
-        id: 2, funcionarioId: 'u1', funcionarioNome: 'Carlos Silva', funcionarioInitials: 'CS',
-        nomeContratada: 'Construtora Alpha Ltda', numContrato: '001/2025',
-        localEscopo: 'Linha 7-Rubi – Trecho Jundiaí',
-        autorCadastro: 'Carlos Silva', responsavelTecnico: 'Eng. Marcos Lima',
-        naturezaPGA: 'Resíduos Sólidos', dataEmissao: '2025-02-09', numFormulario: 2,
-        autorFormulario: 'Carlos Silva',
-        dataCadastramento: '2025-02-09', horaCadastramento: '14:10',
-        emNumero: 7, emNome: 'E.M. Jundiaí',
-        municipio: 'Jundiaí', linha: 'Linha 7-Rubi', estacao: 'Jundiaí',
-        origemEfluente: 'Outro(a)(s)', fonteGeradora: 'Drenagem de obra',
-        quantidadeLitros: 0, observacoesGerais: 'Resíduos sólidos descartados no canteiro.',
-        fotos: [], status: 'enviada', createdAt: now - 86400000, updatedAt: now - 86400000,
-      },
-      // Ana Paula Rodrigues – L8-Diamante
-      {
-        id: 3, funcionarioId: 'u2', funcionarioNome: 'Ana Paula Rodrigues', funcionarioInitials: 'AR',
-        nomeContratada: 'Beta Engenharia S.A.', numContrato: '002/2025',
-        localEscopo: 'Linha 8-Diamante – Km 42+300',
-        autorCadastro: 'Ana Paula Rodrigues', responsavelTecnico: 'Eng. Carla Matos',
-        naturezaPGA: 'Efluentes', dataEmissao: '2025-02-07', numFormulario: 3,
-        autorFormulario: 'Ana Paula Rodrigues',
-        dataCadastramento: '2025-02-07', horaCadastramento: '09:00',
-        emNumero: 8, emNome: 'E.M. Km 42+300',
-        municipio: 'Osasco', linha: 'Linha 8-Diamante', estacao: 'Km 42+300',
-        kmPoste: '42+300', latitude: -23.5317, longitude: -46.7521,
-        origemEfluente: 'Pluvial', fonteGeradora: 'Escoamento superficial',
-        quantidadeLitros: 200, observacoesGerais: 'Efluente com coloração suspeita no córrego adjacente.',
-        fotos: [], status: 'analisada', createdAt: now - 259200000, updatedAt: now - 259200000,
-      },
-      {
-        id: 4, funcionarioId: 'u2', funcionarioNome: 'Ana Paula Rodrigues', funcionarioInitials: 'AR',
-        nomeContratada: 'Beta Engenharia S.A.', numContrato: '002/2025',
-        localEscopo: 'Linha 8-Diamante – Estação Itapevi',
-        autorCadastro: 'Ana Paula Rodrigues', responsavelTecnico: 'Eng. Carla Matos',
-        naturezaPGA: 'Efluentes', dataEmissao: '2025-02-08', numFormulario: 4,
-        autorFormulario: 'Ana Paula Rodrigues',
-        dataCadastramento: '2025-02-08', horaCadastramento: '11:45',
-        emNumero: 8, emNome: 'E.M. Itapevi',
-        municipio: 'Itapevi', linha: 'Linha 8-Diamante', estacao: 'Itapevi',
-        origemEfluente: 'Industrial', fonteGeradora: 'Efluente de lavagem',
-        quantidadeLitros: 1500, tipoDestinacao: 'Coleta e transporte por caminhão',
-        observacoesGerais: 'Efluente oleoso em poço de inspeção.',
-        fotos: [], status: 'enviada', createdAt: now - 172800000, updatedAt: now - 172800000,
-      },
-      // Bruno Ferreira – L9-Esmeralda
-      {
-        id: 5, funcionarioId: 'u3', funcionarioNome: 'Bruno Ferreira', funcionarioInitials: 'BF',
-        nomeContratada: 'Gama Serviços Ambientais', numContrato: '003/2025',
-        localEscopo: 'Linha 9-Esmeralda – Campo Limpo Paulista',
-        autorCadastro: 'Bruno Ferreira', responsavelTecnico: 'Eng. Renato Souza',
-        naturezaPGA: 'Recursos Hídricos', dataEmissao: '2025-02-05', numFormulario: 5,
-        autorFormulario: 'Bruno Ferreira',
-        dataCadastramento: '2025-02-05', horaCadastramento: '07:50',
-        emNumero: 9, emNome: 'E.M. Campo Limpo Paulista',
-        municipio: 'Campo Limpo Paulista', linha: 'Linha 9-Esmeralda', estacao: 'Campo Limpo Paulista',
-        origemEfluente: 'Pluvial', fonteGeradora: 'Escoamento superficial',
-        quantidadeLitros: 3000, observacoesGerais: 'Incremento de vazão após chuvas – possível infiltração.',
-        fotos: [], status: 'enviada', createdAt: now - 432000000, updatedAt: now - 432000000,
-      },
-      {
-        id: 6, funcionarioId: 'u3', funcionarioNome: 'Bruno Ferreira', funcionarioInitials: 'BF',
-        nomeContratada: 'Gama Serviços Ambientais', numContrato: '003/2025',
-        localEscopo: 'Linha 9-Esmeralda – Km 18+500',
-        autorCadastro: 'Bruno Ferreira', responsavelTecnico: 'Eng. Renato Souza',
-        naturezaPGA: 'Efluentes', dataEmissao: '2025-02-04', numFormulario: 6,
-        autorFormulario: 'Bruno Ferreira',
-        dataCadastramento: '2025-02-04', horaCadastramento: '16:20',
-        emNumero: 9, emNome: 'E.M. Km 18+500',
-        municipio: 'Várzea Paulista', linha: 'Linha 9-Esmeralda', estacao: 'Km 18+500',
-        kmPoste: '18+500',
-        origemEfluente: 'Doméstico', fonteGeradora: 'Fossa séptica',
-        quantidadeLitros: 800, observacoesGerais: 'Efluente com coloração suspeita no córrego adjacente.',
-        fotos: [], status: 'rascunho', createdAt: now - 518400000, updatedAt: now - 518400000,
-      },
-      // Fernanda Lima – L10-Turquesa
-      {
-        id: 7, funcionarioId: 'u4', funcionarioNome: 'Fernanda Lima', funcionarioInitials: 'FL',
-        nomeContratada: 'Delta Ambiental Ltda', numContrato: '004/2025',
-        localEscopo: 'Linha 10-Turquesa – Calmon Viana',
-        autorCadastro: 'Fernanda Lima', responsavelTecnico: 'Eng. Paulo Neves',
-        naturezaPGA: 'Resíduos Sólidos', dataEmissao: '2025-02-03', numFormulario: 7,
-        autorFormulario: 'Fernanda Lima',
-        dataCadastramento: '2025-02-03', horaCadastramento: '10:00',
-        emNumero: 10, emNome: 'E.M. Calmon Viana',
-        municipio: 'Poá', linha: 'Linha 10-Turquesa', estacao: 'Calmon Viana',
-        origemEfluente: 'Outro(a)(s)', fonteGeradora: 'Drenagem de obra',
-        quantidadeLitros: 0, observacoesGerais: 'Material de construção descartado irregularmente.',
-        fotos: [], status: 'enviada', createdAt: now - 604800000, updatedAt: now - 604800000,
-      },
-      {
-        id: 8, funcionarioId: 'u4', funcionarioNome: 'Fernanda Lima', funcionarioInitials: 'FL',
-        nomeContratada: 'Delta Ambiental Ltda', numContrato: '004/2025',
-        localEscopo: 'Linha 10-Turquesa – Pátio Guaianases',
-        autorCadastro: 'Fernanda Lima', responsavelTecnico: 'Eng. Paulo Neves',
-        naturezaPGA: 'Efluentes', dataEmissao: '2025-02-02', numFormulario: 8,
-        autorFormulario: 'Fernanda Lima',
-        dataCadastramento: '2025-02-02', horaCadastramento: '13:30',
-        emNumero: 10, emNome: 'E.M. Pátio Guaianases',
-        municipio: 'Guaianases', linha: 'Linha 10-Turquesa', estacao: 'Guaianases',
-        origemEfluente: 'Industrial', fonteGeradora: 'Efluente de lavagem',
-        quantidadeLitros: 2500, tipoDestinacao: 'Coleta e transporte por caminhão',
-        observacoesGerais: 'Vazamento de óleo hidráulico em área de manutenção.',
-        fotos: [], status: 'analisada', createdAt: now - 691200000, updatedAt: now - 691200000,
-      },
-    ]
-    persist()
-    localStorage.setItem(SEED_KEY, SEED_VERSION)
+  async function carregarPorLocalId(localId) {
+    const item = inspecoes.value.find((inspecao) => inspecao.localId === localId)
+    if (item?.photosHydrated) return item
+    return hydrateInspection(localId)
   }
 
   return {
-    inspecoes, loading, erro,
-    total, enviadas, rascunhos, recentes, todas, ultimasPorFuncionario,
-    salvarRascunho, enviar, excluir, carregarDoServidor, porFuncionario,
+    inspecoes,
+    loading,
+    erro,
+    initialized,
+    syncing,
+    apiDisponivel,
+    browserOnline,
+    filaPendencias,
+    total,
+    sincronizadas,
+    enviadas,
+    rascunhos,
+    pendentesSync,
+    recentes,
+    todas,
+    ultimasPorFuncionario,
+    initialize,
+    salvarRascunho,
+    enfileirarParaSync,
+    sincronizarPendentes,
+    retryItem,
+    carregarDoServidor,
+    reconciliarLocalComServidor,
+    carregarPorLocalId,
+    excluir,
+    porFuncionario,
   }
 })

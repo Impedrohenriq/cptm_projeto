@@ -32,12 +32,12 @@
         <div class="stat-sep"></div>
         <div class="stat-item">
           <span class="stat-item__num">{{ store.enviadas }}</span>
-          <span class="stat-item__label">Enviadas</span>
+          <span class="stat-item__label">Sincronizadas</span>
         </div>
         <div class="stat-sep"></div>
         <div class="stat-item">
-          <span class="stat-item__num">{{ store.rascunhos }}</span>
-          <span class="stat-item__label">Rascunhos</span>
+          <span class="stat-item__num">{{ store.pendentesSync }}</span>
+          <span class="stat-item__label">Pendentes</span>
         </div>
         <div class="stat-sep"></div>
         <div class="stat-item">
@@ -51,18 +51,25 @@
     <div class="gestor__content">
 
       <div class="section-header">
-        <h2 class="section-title">Últimas Inspeções por Funcionário</h2>
-        <span class="section-sub">Toque para ver o resumo completo</span>
+        <h2 class="section-title">Todas as Inspeções</h2>
+        <span class="section-sub">{{ store.todas.length }} formulário(s) registrado(s)</span>
       </div>
 
-      <!-- Employee cards -->
+      <!-- All inspections -->
+      <div v-if="store.todas.length === 0" class="lista-vazia">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40" style="opacity:.3;margin:0 auto 8px" aria-hidden="true">
+          <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15h8v2H8zm0-4h8v2H8zm0-4h5v2H8z"/>
+        </svg>
+        <p>Nenhuma inspeção registrada ainda.</p>
+      </div>
+
       <div class="func-lista" role="list">
         <button
-          v-for="ins in ultimasPorFuncionario"
-          :key="ins.funcionarioId"
+          v-for="ins in store.todas"
+          :key="ins.localId"
           class="func-card"
           role="listitem"
-          :aria-label="`${ins.funcionarioNome}, última inspeção: ${ins.nomeContratada || 'FDC-EEA.EF'}`"
+          :aria-label="`${ins.funcionarioNome || 'Inspetor'} — ${ins.nomeContratada || 'FDC-EEA.EF'}`"
           @click="abrirResumo(ins)"
         >
           <!-- Avatar -->
@@ -228,6 +235,31 @@
                   <span class="inspetor-label">Responsável pela inspeção</span>
                 </div>
               </div>
+
+              <!-- Gestor action row -->
+              <div class="modal-acoes">
+                <template v-if="!confirmandoExclusao">
+                  <button class="btn-acao btn-acao--editar" @click="editarInspecao(inspecaoSelecionada)">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17" aria-hidden="true">
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                    </svg>
+                    Editar Formulário
+                  </button>
+                  <button class="btn-acao btn-acao--excluir" @click="confirmandoExclusao = true">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17" aria-hidden="true">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                    Excluir Formulário
+                  </button>
+                </template>
+                <template v-else>
+                  <p class="confirm-aviso">Excluir esta inspeção permanentemente?</p>
+                  <div class="confirm-botoes">
+                    <button class="btn-acao btn-acao--cancelar" @click="confirmandoExclusao = false">Cancelar</button>
+                    <button class="btn-acao btn-acao--confirmar" @click="excluirInspecao(inspecaoSelecionada.localId)">Sim, excluir</button>
+                  </div>
+                </template>
+              </div>
             </div>
           </div>
         </div>
@@ -238,7 +270,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useInspecoesStore } from '@/stores/inspecoes'
@@ -256,11 +288,16 @@ const { saudacao } = useSaudacao()
 const ultimasPorFuncionario = computed(() => store.ultimasPorFuncionario)
 
 const funcionarios = computed(() => {
-  const ids = new Set(ultimasPorFuncionario.value.map(i => i.funcionarioId))
+  const ids = new Set(store.todas.map(i => i.funcionarioId).filter(Boolean))
   return [...ids]
 })
 
 const inspecaoSelecionada = ref(null)
+const confirmandoExclusao = ref(false)
+
+onMounted(async () => {
+  await store.initialize()
+})
 
 const AVATAR_CLASSES = ['av-red', 'av-blue', 'av-green', 'av-purple']
 const avatarMap = new Map()
@@ -284,8 +321,25 @@ function formatDate(ts) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
-function abrirResumo(ins) { inspecaoSelecionada.value = ins }
-function fecharResumo()   { inspecaoSelecionada.value = null }
+function abrirResumo(ins) {
+  confirmandoExclusao.value = false
+  inspecaoSelecionada.value = ins
+}
+
+function fecharResumo() {
+  inspecaoSelecionada.value = null
+  confirmandoExclusao.value = false
+}
+
+function editarInspecao(ins) {
+  fecharResumo()
+  router.push({ path: '/formulario', query: { localId: ins.localId } })
+}
+
+async function excluirInspecao(localId) {
+  await store.excluir(localId)
+  fecharResumo()
+}
 
 function handleLogout() {
   auth.logout()
@@ -543,6 +597,72 @@ function handleLogout() {
 .inspetor-info { display: flex; flex-direction: column; gap: 2px; }
 .inspetor-nome { font-size: var(--txt-sm); font-weight: 700; color: var(--cptm-cinza-escuro); }
 .inspetor-label { font-size: var(--txt-xs); color: var(--cptm-cinza-claro); }
+
+/* ---- Modal action buttons ---- */
+.modal-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-sm);
+  padding: var(--s-md);
+  border-top: 1px solid var(--cptm-cinza-borda);
+}
+
+.btn-acao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 14px var(--s-md);
+  font-size: var(--txt-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-acao:active { opacity: 0.8; transform: scale(0.98); }
+
+.btn-acao--editar {
+  background: var(--cptm-vermelho);
+  color: white;
+}
+.btn-acao--excluir {
+  background: var(--cptm-cinza-fundo);
+  color: #C62828;
+  border: 1.5px solid #FFCDD2;
+}
+.btn-acao--cancelar {
+  flex: 1;
+  background: var(--cptm-cinza-fundo);
+  color: var(--cptm-cinza-medio);
+  border: 1.5px solid var(--cptm-cinza-borda);
+}
+.btn-acao--confirmar {
+  flex: 1;
+  background: #C62828;
+  color: white;
+}
+
+.confirm-aviso {
+  font-size: var(--txt-sm);
+  font-weight: 700;
+  color: #C62828;
+  text-align: center;
+  padding: 4px 0;
+}
+.confirm-botoes {
+  display: flex;
+  gap: var(--s-sm);
+}
+
+/* ---- Empty state ---- */
+.lista-vazia {
+  text-align: center;
+  padding: var(--s-xl) var(--s-md);
+  color: var(--cptm-cinza-claro);
+  font-size: var(--txt-sm);
+}
 
 /* ---- Transitions ---- */
 .slide-up-enter-active { transition: all 0.35s cubic-bezier(0.34, 1.15, 0.64, 1); }

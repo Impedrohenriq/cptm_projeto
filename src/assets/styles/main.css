@@ -6,6 +6,10 @@
 
 @import './variables.css';
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ---- Reset ---- */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -352,7 +356,7 @@ ul, ol { list-style: none; }
 }
 
 /* ============================================================
-   FDC Form Design System — shared across all Etapa components
+   FDC Form Design System ï¿½ shared across all Etapa components
    ============================================================ */
 
 /* Page wrapper */
@@ -404,7 +408,7 @@ input[type="date"].fdc-input, input[type="time"].fdc-input { padding-right: 10px
 /* ---- Select wrapper ---- */
 .fdc-wrap--sel .fdc-input { cursor: pointer; }
 
-/* ---- Clear (×) button ---- */
+/* ---- Clear (ï¿½) button ---- */
 .fdc-clear {
   position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
   width: 22px; height: 22px; border: none; background: var(--cptm-cinza-borda);

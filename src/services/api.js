@@ -1,251 +1,322 @@
-/**
- * api.js — Serviço de comunicação com a API .NET (CPTM Backend)
- *
- * Estratégia:
- *  - Rascunhos ficam só no localStorage (suporte offline/mobile)
- *  - enviar() → POST para a API (salva no Oracle)
- *  - carregarDoServidor() → GET da API (lê do Oracle)
- *  - excluir(chave) → DELETE na API
- */
+import { blobToBase64 } from '@/services/offlineMedia.js'
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000'
 const ENDPOINT = `${BASE}/api/formularios-efluente`
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
+const HEALTH_ENDPOINT = `${BASE}/health`
+const AUTH_ENDPOINT = `${BASE}/api/auth`
 
 function headers() {
   return { 'Content-Type': 'application/json' }
 }
 
-async function checarResposta(res) {
-  if (res.ok) return res.status === 204 ? null : res.json()
-  const texto = await res.text().catch(() => res.statusText)
-  throw new Error(`[${res.status}] ${texto}`)
+function buildApiError({ status, message, body, isNetworkError = false }) {
+  const error = new Error(message)
+  error.status = status
+  error.body = body
+  error.isNetworkError = isNetworkError
+  return error
 }
 
-// ─── Mapeamento frontend → DTO ───────────────────────────────────────────────
+async function parseErrorBody(res) {
+  const text = await res.text().catch(() => '')
 
-export function paraDto(inspecao) {
+  if (!text) return null
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+async function checarResposta(res) {
+  if (res.ok) {
+    return res.status === 204 ? null : res.json()
+  }
+
+  const body = await parseErrorBody(res)
+  const message = typeof body === 'string'
+    ? `[${res.status}] ${body}`
+    : `[${res.status}] ${body?.title ?? body?.message ?? res.statusText}`
+
+  throw buildApiError({ status: res.status, message, body })
+}
+
+async function fetchJson(url, options = {}) {
+  try {
+    const response = await fetch(url, options)
+    return await checarResposta(response)
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw buildApiError({
+        status: 0,
+        message: 'Falha de rede ao acessar a API.',
+        isNetworkError: true,
+      })
+    }
+
+    throw error
+  }
+}
+
+export function buildChavePrimariaMa(inspecao) {
   const ano = inspecao.dataEmissao
     ? new Date(inspecao.dataEmissao).getFullYear()
     : new Date().getFullYear()
 
   const linhaNum = (inspecao.linha ?? '').match(/\d+/)?.[0]?.padStart(2, '0') ?? '00'
-  const sigla    = (inspecao.nomeContratada ?? '').split(' - ').pop()
-                     ?.replace(/\s/g, '').substring(0, 10) ?? 'CPTM'
-  const nr       = String(inspecao.numFormulario ?? 1).padStart(6, '0')
+  const sigla = (inspecao.nomeContratada ?? '')
+    .split(' - ')
+    .pop()
+    ?.replace(/\s/g, '')
+    .substring(0, 10) ?? 'CPTM'
+  const numero = String(inspecao.numFormulario ?? 1).padStart(6, '0')
 
-  const chavePrimariaMa =
-    inspecao.chavePrimariaMa ?? `EEA.EF-A.${ano}-L.${linhaNum}-${sigla}-N.${nr}`
+  return inspecao.chavePrimariaMa ?? `EEA.EF-A.${ano}-L.${linhaNum}-${sigla}-N.${numero}`
+}
 
-  const isoData = (ds) => ds ? new Date(ds).toISOString() : new Date().toISOString()
+function normalizePhotoMime(photo) {
+  return photo.type || photo.blob?.type || 'image/jpeg'
+}
+
+async function serializeFoto(photo, index) {
+  const fotoBase64 = photo.blob
+    ? await blobToBase64(photo.blob)
+    : photo.base64 ?? photo.fotoBase64 ?? null
+
+  return {
+    idFoto: photo.idFoto ?? null,
+    nrFoto: photo.nrFoto ?? index + 1,
+    fotoBase64,
+    dsOrientacao: photo.orientacao ?? photo.dsOrientacao ?? 'Paisagem/Horizontal',
+    mimeType: normalizePhotoMime(photo),
+  }
+}
+
+export async function paraDto(inspecao) {
+  const chavePrimariaMa = buildChavePrimariaMa(inspecao)
+  const isoData = (valor) => valor ? new Date(valor).toISOString() : new Date().toISOString()
 
   return {
     chavePrimariaMa,
-
-    // Seção 5 – Identificação do E.M.
     nrElementoMonit: String(inspecao.emNumero ?? 1).padStart(6, '0'),
     nmElementoMonit: inspecao.emNome ?? null,
-
-    // Seção 1 – Premissas Institucionais
-    nmContratada:           inspecao.nomeContratada    ?? '',
-    nrContrato:             inspecao.numContrato       ?? null,
-    nmLocalEscopo:          inspecao.localEscopo       ?? null,
-    nmRepresentante:        inspecao.representante     ?? null,
-    sgAreaMeioAmbiente:     inspecao.siglaAreaMA       ?? null,
-    nmAreaGestoraCptm:      inspecao.nomeAreaGestora   ?? null,
-    cdIdentAreaGestora:     inspecao.idAreaGestora     ?? null,
-    sgAreaGestoraCptm:      inspecao.siglaAreaGestora  ?? null,
-    nmSupervisoraAmbiental: inspecao.nomeSupervisora   ?? null,
-
-    // Seção 2 – Cadastrador / RT
-    nmAutorCadastramento:   inspecao.autorCadastro        ?? '',
-    nmResponsavelTecnico:   inspecao.responsavelTecnico   ?? '',
+    nmContratada: inspecao.nomeContratada ?? '',
+    nrContrato: inspecao.numContrato ?? null,
+    nmLocalEscopo: inspecao.localEscopo ?? null,
+    nmRepresentante: inspecao.representante ?? null,
+    sgAreaMeioAmbiente: inspecao.siglaArea ?? null,
+    nmAreaGestoraCptm: inspecao.nomeAreaGestora ?? null,
+    cdIdentAreaGestora: inspecao.idAreaGestora ?? null,
+    sgAreaGestoraCptm: inspecao.siglaAreaGestora ?? null,
+    nmSupervisoraAmbiental: inspecao.nomeSupervisora ?? null,
+    nmAutorCadastramento: inspecao.autorCadastro ?? '',
+    nmResponsavelTecnico: inspecao.responsavelTecnico ?? '',
     nrRegistroProfissional: inspecao.registroProfissional ?? null,
-    dsDocRespTecnica:       inspecao.docRespTecnica        ?? null,
-
-    // Seção 3 – Identificação do Formulário
-    dsNaturezaPga:       inspecao.naturezaPGA      ?? null,
-    dsTipoFormulario:    'Formulário de Cadastramento - FDC (FDC-EEA.EF)',
+    dsDocRespTecnica: inspecao.docRT ?? null,
+    dsNaturezaPga: inspecao.naturezaPGA ?? null,
+    dsTipoFormulario: 'Formulario de Cadastramento - FDC (FDC-EEA.EF)',
     dtEmissaoFormulario: isoData(inspecao.dataEmissao),
-    nrFormulario:        String(inspecao.numFormulario ?? 1).padStart(6, '0'),
-    nmAutorFormulario:   inspecao.autorFormulario  ?? null,
-    nmArquivoFdc:        inspecao.nomeArquivoFdc   ?? null,
-    cdArquivoFdc:        inspecao.codigoArquivoFdc ?? null,
-
-    // Seção 4 – Data e Hora do Cadastro
-    dtCadastramento:  isoData(inspecao.dataCadastramento),
-    hrCadastramento:  inspecao.horaCadastramento ?? null,
-
-    // Seção 6 – Localização
-    nmMunicipio:         inspecao.municipio      ?? null,
-    nmLinhaCptm:         inspecao.linha          ?? null,
-    nmEstacaoCptm:       inspecao.estacao        ?? null,
-    nrViaLinhaCptm:      inspecao.viaLinha       ?? null,
-    dsTrechoSentidoCptm: inspecao.trechoSentido  ?? null,
-    nrKmPoste:           inspecao.kmPoste        ?? null,
-    nrLatitude:          inspecao.latitude       ?? null,
-    nrLongitude:         inspecao.longitude      ?? null,
-
-    // Seção 7.1 – Regulamentação Ambiental
-    dsTipoAtividadeList:  inspecao.tipoAtividadeListada   ?? null,
+    nrFormulario: String(inspecao.numFormulario ?? 1).padStart(6, '0'),
+    nmAutorFormulario: inspecao.autorFormulario ?? null,
+    nmArquivoFdc: inspecao.nomeArquivoFdc ?? null,
+    cdArquivoFdc: inspecao.codigoArquivoFdc ?? null,
+    dtCadastramento: isoData(inspecao.dataCadastramento),
+    hrCadastramento: inspecao.horaCadastramento ?? null,
+    nmMunicipio: inspecao.municipio ?? null,
+    nmLinhaCptm: inspecao.linha ?? null,
+    nmEstacaoCptm: inspecao.estacao ?? null,
+    nrViaLinhaCptm: inspecao.via ?? null,
+    dsTrechoSentidoCptm: inspecao.trechoSentido ?? null,
+    nrKmPoste: inspecao.kmPoste ?? null,
+    nrLatitude: inspecao.latitude ?? null,
+    nrLongitude: inspecao.longitude ?? null,
+    dsTipoAtividadeList: inspecao.tipoAtividadeListada ?? null,
     dsTipoAtividadeNlist: inspecao.tipoAtividadeNaoListada ?? null,
-    dsTipoDraList:        inspecao.tipoDraListado          ?? null,
-    dsTipoDraNlist:       inspecao.tipoDraNaoListado       ?? null,
-    cdIdentificadorDra:   inspecao.codigoDra               ?? null,
-    dtValidadeDra:        inspecao.dataValidadeDra
-                            ? new Date(inspecao.dataValidadeDra).toISOString()
-                            : null,
-
-    // Seção 7.2 – Detalhamento
-    dsTipoAtividadeCptm: inspecao.tipoAtividadeCptm ?? null,
-    nmLocalEdificacao:   inspecao.nomeEdificacao    ?? null,
-    dsLocalComplemento:  inspecao.complementoLocal  ?? null,
-    dsOrigemEfluente:    inspecao.origemEfluente    ?? null,
-    dsFonteGeradora:     inspecao.fonteGeradora     ?? null,
-    nrQuantidadeLitros:  inspecao.quantidadeLitros  ?? null,
-    dsTipoDestinacao:    inspecao.tipoDestinacao    ?? null,
-    dsTipoVeiculo:       inspecao.tipoVeiculo       ?? null,
-    cdPlacaVeiculo:      inspecao.placaVeiculo      ?? null,
-    cdGuiaRemessa:       inspecao.guiaRemessa        ?? null,
-    nrDistanciaViaM:     inspecao.distanciaViaM     ?? null,
+    dsTipoDraList: inspecao.tipoDRAListado ?? null,
+    dsTipoDraNlist: inspecao.tipoDRANaoListado ?? null,
+    cdIdentificadorDra: inspecao.codigoDRA ?? null,
+    dtValidadeDra: inspecao.dataValidadeDRA ? new Date(inspecao.dataValidadeDRA).toISOString() : null,
+    dsTipoAtividadeCptm: inspecao.tipoAtividadeCPTM ?? null,
+    nmLocalEdificacao: inspecao.nomeLocal ?? null,
+    dsLocalComplemento: inspecao.complementoLocal ?? null,
+    dsOrigemEfluente: inspecao.origemEfluente ?? null,
+    dsFonteGeradora: inspecao.fonteGeradora ?? null,
+    nrQuantidadeLitros: inspecao.quantidadeLitros ?? null,
+    dsTipoDestinacao: inspecao.tipoDestinacao ?? null,
+    dsTipoVeiculo: inspecao.tipoVeiculo ?? null,
+    cdPlacaVeiculo: inspecao.placaVeiculo ?? null,
+    cdGuiaRemessa: inspecao.codigoGuiaRemessa ?? null,
+    nrDistanciaViaM: inspecao.distanciaVia ?? null,
     dsObservacoesCadastro: inspecao.observacoesGerais ?? null,
-
-    // Seção 7.3 – Fotografias
-    fotos: (inspecao.fotos ?? []).map((f, i) => ({
-      idFoto:       f.idFoto       ?? null,
-      nrFoto:       f.nrFoto       ?? (i + 1),
-      fotoBase64:   f.base64       ?? f.fotoBase64 ?? null,
-      dsOrientacao: f.orientacao   ?? 'Paisagem/Horizontal',
-    })),
+    fotos: await Promise.all((inspecao.fotos ?? []).map((foto, index) => serializeFoto(foto, index))),
   }
 }
-
-// ─── Mapeamento DTO → frontend ───────────────────────────────────────────────
 
 export function doDto(dto) {
+  const dataCadastro = dto.dtCadastramento?.split('T')[0]
+  const horaCadastro = dto.hrCadastramento
+
+  let uploadedAt = Date.now()
+  if (dataCadastro) {
+    const horario = horaCadastro && /^\d{2}:\d{2}$/.test(horaCadastro) ? `${horaCadastro}:00` : '00:00:00'
+    const parsed = new Date(`${dataCadastro}T${horario}`)
+    if (!Number.isNaN(parsed.getTime())) {
+      uploadedAt = parsed.getTime()
+    }
+  }
+
   return {
     chavePrimariaMa: dto.chavePrimariaMa,
-    id:              dto.chavePrimariaMa,
-
-    nomeContratada:    dto.nmContratada,
-    numContrato:       dto.nrContrato,
-    localEscopo:       dto.nmLocalEscopo,
-    representante:     dto.nmRepresentante,
-    siglaAreaMA:       dto.sgAreaMeioAmbiente,
-    nomeAreaGestora:   dto.nmAreaGestoraCptm,
-    idAreaGestora:     dto.cdIdentAreaGestora,
-    siglaAreaGestora:  dto.sgAreaGestoraCptm,
-    nomeSupervisora:   dto.nmSupervisoraAmbiental,
-
-    autorCadastro:        dto.nmAutorCadastramento,
-    responsavelTecnico:   dto.nmResponsavelTecnico,
+    nomeContratada: dto.nmContratada,
+    numContrato: dto.nrContrato,
+    localEscopo: dto.nmLocalEscopo,
+    representante: dto.nmRepresentante,
+    siglaArea: dto.sgAreaMeioAmbiente,
+    nomeAreaGestora: dto.nmAreaGestoraCptm,
+    idAreaGestora: dto.cdIdentAreaGestora,
+    siglaAreaGestora: dto.sgAreaGestoraCptm,
+    nomeSupervisora: dto.nmSupervisoraAmbiental,
+    autorCadastro: dto.nmAutorCadastramento,
+    responsavelTecnico: dto.nmResponsavelTecnico,
     registroProfissional: dto.nrRegistroProfissional,
-    docRespTecnica:       dto.dsDocRespTecnica,
-
-    naturezaPGA:      dto.dsNaturezaPga,
-    dataEmissao:      dto.dtEmissaoFormulario?.split('T')[0],
-    numFormulario:    parseInt(dto.nrFormulario, 10),
-    autorFormulario:  dto.nmAutorFormulario,
-    nomeArquivoFdc:   dto.nmArquivoFdc,
+    docRT: dto.dsDocRespTecnica,
+    naturezaPGA: dto.dsNaturezaPga,
+    dataEmissao: dto.dtEmissaoFormulario?.split('T')[0],
+    numFormulario: parseInt(dto.nrFormulario, 10),
+    autorFormulario: dto.nmAutorFormulario,
+    nomeArquivoFdc: dto.nmArquivoFdc,
     codigoArquivoFdc: dto.cdArquivoFdc,
-
-    dataCadastramento: dto.dtCadastramento?.split('T')[0],
-    horaCadastramento: dto.hrCadastramento,
-
-    emNumero:     parseInt(dto.nrElementoMonit, 10),
-    emNome:       dto.nmElementoMonit,
-    municipio:    dto.nmMunicipio,
-    linha:        dto.nmLinhaCptm,
-    estacao:      dto.nmEstacaoCptm,
-    viaLinha:     dto.nrViaLinhaCptm,
+    dataCadastramento: dataCadastro,
+    horaCadastramento: horaCadastro,
+    uploadedAt,
+    emNumero: parseInt(dto.nrElementoMonit, 10),
+    emNome: dto.nmElementoMonit,
+    municipio: dto.nmMunicipio,
+    linha: dto.nmLinhaCptm,
+    estacao: dto.nmEstacaoCptm,
+    via: dto.nrViaLinhaCptm,
     trechoSentido: dto.dsTrechoSentidoCptm,
-    kmPoste:      dto.nrKmPoste,
-    latitude:     dto.nrLatitude,
-    longitude:    dto.nrLongitude,
-
-    tipoAtividadeListada:    dto.dsTipoAtividadeList,
+    kmPoste: dto.nrKmPoste,
+    latitude: dto.nrLatitude,
+    longitude: dto.nrLongitude,
+    tipoAtividadeListada: dto.dsTipoAtividadeList,
     tipoAtividadeNaoListada: dto.dsTipoAtividadeNlist,
-    tipoDraListado:          dto.dsTipoDraList,
-    tipoDraNaoListado:       dto.dsTipoDraNlist,
-    codigoDra:               dto.cdIdentificadorDra,
-    dataValidadeDra:         dto.dtValidadeDra?.split('T')[0],
-
-    tipoAtividadeCptm: dto.dsTipoAtividadeCptm,
-    nomeEdificacao:    dto.nmLocalEdificacao,
-    complementoLocal:  dto.dsLocalComplemento,
-    origemEfluente:    dto.dsOrigemEfluente,
-    fonteGeradora:     dto.dsFonteGeradora,
-    quantidadeLitros:  dto.nrQuantidadeLitros,
-    tipoDestinacao:    dto.dsTipoDestinacao,
-    tipoVeiculo:       dto.dsTipoVeiculo,
-    placaVeiculo:      dto.cdPlacaVeiculo,
-    guiaRemessa:       dto.cdGuiaRemessa,
-    distanciaViaM:     dto.nrDistanciaViaM,
+    tipoDRAListado: dto.dsTipoDraList,
+    tipoDRANaoListado: dto.dsTipoDraNlist,
+    codigoDRA: dto.cdIdentificadorDra,
+    dataValidadeDRA: dto.dtValidadeDra?.split('T')[0],
+    tipoAtividadeCPTM: dto.dsTipoAtividadeCptm,
+    nomeLocal: dto.nmLocalEdificacao,
+    complementoLocal: dto.dsLocalComplemento,
+    origemEfluente: dto.dsOrigemEfluente,
+    fonteGeradora: dto.dsFonteGeradora,
+    quantidadeLitros: dto.nrQuantidadeLitros,
+    tipoDestinacao: dto.dsTipoDestinacao,
+    tipoVeiculo: dto.dsTipoVeiculo,
+    placaVeiculo: dto.cdPlacaVeiculo,
+    codigoGuiaRemessa: dto.cdGuiaRemessa,
+    distanciaVia: dto.nrDistanciaViaM,
     observacoesGerais: dto.dsObservacoesCadastro,
-
-    fotos: (dto.fotos ?? []).map(f => ({
-      idFoto:      f.idFoto,
-      nrFoto:      f.nrFoto,
-      base64:      f.fotoBase64,
-      orientacao:  f.dsOrientacao,
+    fotos: (dto.fotos ?? []).map((foto) => ({
+      idFoto: foto.idFoto,
+      nrFoto: foto.nrFoto,
+      base64: foto.fotoBase64,
+      orientacao: foto.dsOrientacao,
+      type: foto.mimeType ?? 'image/jpeg',
     })),
-
-    status:     'enviada',
-    updatedAt:  dto.dtCadastramento ? new Date(dto.dtCadastramento).getTime() : Date.now(),
-    createdAt:  dto.dtCadastramento ? new Date(dto.dtCadastramento).getTime() : Date.now(),
-    _fromApi:   true,
+    photosHydrated: Array.isArray(dto.fotos),
   }
 }
 
-// ─── Chamadas HTTP ────────────────────────────────────────────────────────────
+export async function healthCheck() {
+  try {
+    const response = await fetch(HEALTH_ENDPOINT, { cache: 'no-store' })
 
-/** Lista formulários do servidor (paginado) */
+    if (!response.ok) {
+      throw buildApiError({
+        status: response.status,
+        message: `[${response.status}] Health check indisponivel.`,
+      })
+    }
+
+    return true
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw buildApiError({
+        status: 0,
+        message: 'Falha de rede ao consultar o health check da API.',
+        isNetworkError: true,
+      })
+    }
+
+    throw error
+  }
+}
+
 export async function listar(pagina = 1, tamanho = 50) {
-  const res = await fetch(`${ENDPOINT}?pagina=${pagina}&tamanho=${tamanho}`, {
+  const data = await fetchJson(`${ENDPOINT}?pagina=${pagina}&tamanho=${tamanho}`, {
     headers: headers(),
   })
-  const data = await checarResposta(res)
-  return (data.itens ?? []).map(doDto)
+
+  return (data.itens ?? data.Itens ?? []).map(doDto)
 }
 
-/** Busca um formulário por chave primária */
 export async function buscarPorChave(chavePrimariaMa) {
-  const res = await fetch(`${ENDPOINT}/${encodeURIComponent(chavePrimariaMa)}`, {
+  const data = await fetchJson(`${ENDPOINT}/${encodeURIComponent(chavePrimariaMa)}`, {
     headers: headers(),
   })
-  const data = await checarResposta(res)
+
   return doDto(data)
 }
 
-/** Cria um novo formulário no Oracle */
 export async function criar(inspecao) {
-  const dto = paraDto(inspecao)
-  const res = await fetch(ENDPOINT, {
-    method:  'POST',
+  const dto = await paraDto(inspecao)
+  const data = await fetchJson(ENDPOINT, {
+    method: 'POST',
     headers: headers(),
-    body:    JSON.stringify(dto),
+    body: JSON.stringify(dto),
   })
-  const data = await checarResposta(res)
+
   return doDto(data)
 }
 
-/** Atualiza um formulário existente no Oracle */
 export async function atualizar(inspecao) {
-  const dto = paraDto(inspecao)
-  const res = await fetch(`${ENDPOINT}/${encodeURIComponent(dto.chavePrimariaMa)}`, {
-    method:  'PUT',
+  const dto = await paraDto(inspecao)
+  await fetchJson(`${ENDPOINT}/${encodeURIComponent(dto.chavePrimariaMa)}`, {
+    method: 'PUT',
     headers: headers(),
-    body:    JSON.stringify(dto),
+    body: JSON.stringify(dto),
   })
-  await checarResposta(res) // 204 No Content
 }
 
-/** Remove um formulário do Oracle */
 export async function excluir(chavePrimariaMa) {
-  const res = await fetch(`${ENDPOINT}/${encodeURIComponent(chavePrimariaMa)}`, {
-    method:  'DELETE',
+  await fetchJson(`${ENDPOINT}/${encodeURIComponent(chavePrimariaMa)}`, {
+    method: 'DELETE',
     headers: headers(),
   })
-  await checarResposta(res) // 204 No Content
+}
+
+export async function registrarUsuario({ fullName, email, password, confirmPassword }) {
+  return fetchJson(`${AUTH_ENDPOINT}/register`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      fullName,
+      email,
+      password,
+      confirmPassword,
+    }),
+  })
+}
+
+export async function autenticarUsuario({ email, password }) {
+  return fetchJson(`${AUTH_ENDPOINT}/login`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      email,
+      password,
+    }),
+  })
 }

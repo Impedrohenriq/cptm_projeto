@@ -1,148 +1,163 @@
 <template>
-  <nav class="bottom-nav" role="navigation" aria-label="Navegação principal">
+  <nav
+    class="fixed inset-x-0 bottom-0 z-[120] flex justify-center px-3"
+    role="navigation"
+    aria-label="Navegação principal"
+  >
+    <!-- Wrapper pushes content above the home indicator on iOS -->
+    <div class="w-full max-w-[480px]">
 
-    <!-- Painel -->
-    <button
-      class="nav-item"
-      :class="{ ativo: active === 'dashboard' }"
-      aria-label="Painel"
-      :aria-current="active === 'dashboard' ? 'page' : undefined"
-      @click="$router.push('/dashboard')"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-        <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-      </svg>
-      <span>Painel</span>
-    </button>
-
-    <!-- Botão central Nova Inspeção -->
-    <div class="nav-item nav-item--central">
-      <button
-        class="nav-central-btn"
-        aria-label="Nova inspeção"
-        @click="$router.push('/formulario')"
+      <!-- Glass pill container -->
+      <div
+        class="
+          flex h-[66px] items-center gap-0.5
+          rounded-[28px]
+          border border-white/50
+          bg-white/88
+          px-1.5
+          shadow-[0_-4px_24px_rgba(0,0,0,0.07),0_8px_36px_rgba(0,0,0,0.14)]
+          backdrop-blur-2xl
+        "
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true" fill="white">
-          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-        </svg>
-      </button>
-      <span>Nova</span>
+        <button
+          v-for="item in navItems"
+          :key="item.key"
+          class="
+            relative flex min-w-0 flex-1 flex-col items-center justify-center
+            gap-[3px] rounded-[22px] py-2
+            select-none transition-transform duration-100 active:scale-[0.93]
+          "
+          style="-webkit-tap-highlight-color: transparent"
+          :aria-label="item.label"
+          :aria-current="isActive(item) ? 'page' : undefined"
+          @click="goTo(item.to)"
+        >
+          <!-- Active pill (animated in/out) -->
+          <Transition name="pill">
+            <span
+              v-if="isActive(item)"
+              class="
+                absolute inset-x-[3px] top-[3px] bottom-[3px]
+                rounded-[19px]
+                bg-[var(--cptm-vermelho)]
+                shadow-[0_4px_16px_rgba(200,16,46,0.44)]
+              "
+              aria-hidden="true"
+            />
+          </Transition>
+
+          <!-- Icon -->
+          <span
+            class="relative z-10 flex h-[22px] w-[22px] items-center justify-center transition-all duration-200"
+            :class="isActive(item) ? 'scale-[1.14] text-white' : 'text-slate-400'"
+            aria-hidden="true"
+          >
+            <!-- Guia / Onboarding — Book with sparkle -->
+            <svg v-if="item.key === 'onboarding'" viewBox="0 0 24 24" fill="currentColor" class="h-full w-full">
+              <path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/>
+            </svg>
+
+            <!-- Painel / Dashboard — Grid squares -->
+            <svg v-else-if="item.key === 'dashboard'" viewBox="0 0 24 24" fill="currentColor" class="h-full w-full">
+              <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+            </svg>
+
+            <!-- Novo / Formulário — Plus in rounded square -->
+            <svg v-else-if="item.key === 'formulario'" viewBox="0 0 24 24" fill="currentColor" class="h-full w-full">
+              <path d="M17 13h-4v4h-2v-4H7v-2h4V7h2v4h4v2zm2-9H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/>
+            </svg>
+
+            <!-- Gestor — Calendar with lines -->
+            <svg v-else-if="item.key === 'gestor'" viewBox="0 0 24 24" fill="currentColor" class="h-full w-full">
+              <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
+            </svg>
+
+            <!-- Conta / Perfil — Person silhouette -->
+            <svg v-else viewBox="0 0 24 24" fill="currentColor" class="h-full w-full">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </span>
+
+          <!-- Label -->
+          <span
+            class="relative z-10 select-none text-[9px] font-bold uppercase tracking-[0.08em] leading-none transition-colors duration-200"
+            :class="isActive(item) ? 'text-white' : 'text-slate-400'"
+          >
+            {{ item.label }}
+          </span>
+        </button>
+      </div>
+
     </div>
-
-    <!-- Histórico -->
-    <button
-      class="nav-item"
-      :class="{ ativo: active === 'historico' }"
-      aria-label="Histórico de inspeções"
-      @click="$router.push('/dashboard')"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-        <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
-      </svg>
-      <span>Histórico</span>
-    </button>
-
   </nav>
 </template>
 
 <script setup>
-defineProps({
-  active: { type: String, default: 'dashboard' }
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const route  = useRoute()
+const router = useRouter()
+const auth   = useAuthStore()
+
+const navItems = computed(() => {
+  // Gestor: Guia | Painel | Gestor | Novo | Conta
+  if (auth.isGestor) {
+    return [
+      { key: 'onboarding', label: 'Guia',   to: '/onboarding' },
+      { key: 'dashboard',  label: 'Painel',  to: '/dashboard'  },
+      { key: 'gestor',     label: 'Gestor',  to: '/gestor'     },
+      { key: 'formulario', label: 'Novo',    to: '/formulario' },
+      { key: 'perfil',     label: 'Conta',   to: '/conta'      },
+    ]
+  }
+  // Funcionario: Guia | Painel | Novo | Conta  (sem Gestor)
+  return [
+    { key: 'onboarding', label: 'Guia',   to: '/onboarding' },
+    { key: 'dashboard',  label: 'Painel', to: '/dashboard'  },
+    { key: 'formulario', label: 'Novo',   to: '/formulario' },
+    { key: 'perfil',     label: 'Conta',  to: '/conta'      },
+  ]
 })
+
+function isActive(item) {
+  if (item.to === '/dashboard') return route.path === '/dashboard'
+  if (item.to === '/gestor')    return route.path === '/gestor'
+  if (item.to === '/conta')     return route.path === '/conta'
+  return route.path.startsWith(item.to)
+}
+
+function goTo(path) {
+  if (path === '/formulario') {
+    // Already editing/filling a form — don't disturb
+    if (route.path === '/formulario') return
+    // Navigate to clean /formulario then force a full reload so the form
+    // always renders fresh (no stale component state)
+    router.push('/formulario').then(() => window.location.reload())
+    return
+  }
+  if (route.path !== path) router.push(path)
+}
 </script>
 
 <style scoped>
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: calc(var(--bottom-nav-h) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
-  background: var(--cptm-branco);
-  border-top: 1px solid var(--cptm-cinza-borda);
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  z-index: 100;
-  box-shadow: 0 -4px 12px rgba(0,0,0,.08);
-  max-width: 480px;
-  /* Centre on wider screens */
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
+/* Push content above the home indicator on iOS */
+nav {
+  padding-bottom: env(safe-area-inset-bottom, 10px);
 }
 
-/* Full-width on narrow screens */
-@media (max-width: 480px) {
-  .bottom-nav {
-    transform: none;
-    left: 0;
-    width: 100%;
-  }
-}
+/* Pill enter / leave animation */
+.pill-enter-active { animation: pill-pop-in  0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.pill-leave-active { animation: pill-pop-out 0.15s ease both; }
 
-.nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  padding: var(--s-sm) var(--s-md);
-  border-radius: var(--r-md);
-  background: none;
-  border: none;
-  flex: 1;
-  color: var(--cptm-cinza-claro);
-  -webkit-tap-highlight-color: transparent;
-  transition: background-color var(--t-fast);
+@keyframes pill-pop-in  {
+  from { opacity: 0; transform: scale(0.82); }
+  to   { opacity: 1; transform: scale(1);    }
 }
-.nav-item:hover { background: var(--cptm-cinza-fundo); }
-
-.nav-item svg {
-  width: 24px;
-  height: 24px;
-  transition: color var(--t-fast);
-}
-.nav-item span {
-  font-size: 0.65rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.nav-item.ativo { color: var(--cptm-vermelho); }
-.nav-item.ativo span { font-weight: 700; }
-
-/* Central button */
-.nav-item--central {
-  position: relative;
-  top: -16px;
-  flex: none;
-}
-.nav-central-btn {
-  width: 56px;
-  height: 56px;
-  background: var(--cptm-vermelho);
-  border-radius: 50%;
-  border: 4px solid var(--cptm-branco);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(200,16,46,.45);
-  transition: transform var(--t-fast);
-  -webkit-tap-highlight-color: transparent;
-}
-.nav-central-btn:active { transform: scale(0.92); }
-.nav-central-btn svg { width: 26px; height: 26px; }
-.nav-item--central span {
-  display: block;
-  margin-top: 6px;
-  font-size: 0.65rem;
-  color: var(--cptm-cinza-claro);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  text-align: center;
+@keyframes pill-pop-out {
+  from { opacity: 1; transform: scale(1);    }
+  to   { opacity: 0; transform: scale(0.88); }
 }
 </style>
+

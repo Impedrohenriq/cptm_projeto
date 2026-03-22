@@ -85,6 +85,32 @@
     </div>
 
     <div class="fdc-field">
+      <label class="fdc-lbl" for="idAreaGestora">Identificador da Área Gestora CPTM</label>
+      <div class="fdc-hint">Campo do banco: CD_IDENT_AREA_GESTORA. Ex: ID.10-15-5-3-0000</div>
+      <div class="fdc-wrap">
+        <input id="idAreaGestora" class="fdc-input" type="text"
+          :value="v.idAreaGestora"
+          placeholder="Ex: ID.10-15-5-3-0000 (ou deixe em branco)"
+          @input="u('idAreaGestora', $event.target.value)" />
+        <button v-if="v.idAreaGestora" class="fdc-clear" type="button"
+          @click="u('idAreaGestora', '')" aria-label="Limpar">×</button>
+      </div>
+    </div>
+
+    <div class="fdc-field">
+      <label class="fdc-lbl" for="siglaAreaGestora">Sigla da Área Gestora CPTM</label>
+      <div class="fdc-hint">Campo do banco: SG_AREA_GESTORA_CPTM. Ex: DO.GOF.DOFS.0000</div>
+      <div class="fdc-wrap">
+        <input id="siglaAreaGestora" class="fdc-input" type="text"
+          :value="v.siglaAreaGestora"
+          placeholder="Ex: DO.GOF.DOFS.0000 (ou deixe em branco)"
+          @input="u('siglaAreaGestora', $event.target.value)" />
+        <button v-if="v.siglaAreaGestora" class="fdc-clear" type="button"
+          @click="u('siglaAreaGestora', '')" aria-label="Limpar">×</button>
+      </div>
+    </div>
+
+    <div class="fdc-field">
       <label class="fdc-lbl" for="nomeSupervisora">Nome (PJ) da Supervisora Ambiental</label>
       <div class="fdc-hint">Nome e sigla. Se a CPTM for supervisora, repetir gerência e depto ambiental.</div>
       <div class="fdc-wrap">

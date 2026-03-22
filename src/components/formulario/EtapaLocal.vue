@@ -66,6 +66,32 @@
       </div>
     </div>
 
+    <div class="fdc-field">
+      <label class="fdc-lbl" for="nomeArquivoFdc">Nome do Arquivo FDC</label>
+      <div class="fdc-hint">Campo do banco: NM_ARQUIVO_FDC. Pode manter em branco quando não houver nomenclatura oficial.</div>
+      <div class="fdc-wrap">
+        <input id="nomeArquivoFdc" class="fdc-input" type="text"
+          :value="v.nomeArquivoFdc"
+          placeholder="Ex: DeaoCtAr01823-02FdcEeaEfL10ProgaiaN000001 (ou deixe em branco)"
+          @input="u('nomeArquivoFdc', $event.target.value)" />
+        <button v-if="v.nomeArquivoFdc" class="fdc-clear" type="button"
+          @click="u('nomeArquivoFdc', '')" aria-label="Limpar">×</button>
+      </div>
+    </div>
+
+    <div class="fdc-field">
+      <label class="fdc-lbl" for="codigoArquivoFdc">Código do Arquivo FDC</label>
+      <div class="fdc-hint">Campo do banco: CD_ARQUIVO_FDC. Pode deixar em branco quando não aplicável.</div>
+      <div class="fdc-wrap">
+        <input id="codigoArquivoFdc" class="fdc-input" type="text"
+          :value="v.codigoArquivoFdc"
+          placeholder="Ex: FDC-EEA.EF-A.2026-L.07-CPTM-N.000001 (ou deixe em branco)"
+          @input="u('codigoArquivoFdc', $event.target.value)" />
+        <button v-if="v.codigoArquivoFdc" class="fdc-clear" type="button"
+          @click="u('codigoArquivoFdc', '')" aria-label="Limpar">×</button>
+      </div>
+    </div>
+
     <div class="fdc-auto">
       <div class="fdc-auto__lbl">Código FDC (gerado automaticamente)</div>
       <div class="fdc-auto__val">{{ codigoFDC }}</div>

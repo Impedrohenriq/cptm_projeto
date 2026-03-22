@@ -18,7 +18,7 @@ const routes = [
     path: '/onboarding',
     name: 'onboarding',
     component: () => import('@/views/OnboardingView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, showBottomNav: true }
   },
   {
     path: '/dashboard',
@@ -30,13 +30,19 @@ const routes = [
     path: '/formulario',
     name: 'formulario',
     component: () => import('@/views/FormularioView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, showBottomNav: true }
+  },
+  {
+    path: '/conta',
+    name: 'conta',
+    component: () => import('@/views/ContaView.vue'),
+    meta: { requiresAuth: true, showBottomNav: true }
   },
   {
     path: '/gestor',
     name: 'gestor',
     component: () => import('@/views/GestorView.vue'),
-    meta: { requiresAuth: true, requiresGestor: true }
+    meta: { requiresAuth: true, requiresGestor: true, showBottomNav: true }
   }
 ]
 

@@ -13,13 +13,30 @@
     <!-- Form body -->
     <div class="login__body" role="region" aria-label="Formulário de acesso">
 
-      <h1 class="login__title">Acesse sua conta</h1>
-      <p class="login__desc">Use seu e-mail ou matrícula funcional</p>
+      <h1 class="login__title">{{ authMode === 'login' ? 'Acesse sua conta' : 'Criar conta' }}</h1>
+      <p class="login__desc">
+        {{ authMode === 'login' ? 'Use seu e-mail e senha cadastrados' : 'Cadastre e-mail, senha e confirme para continuar' }}
+      </p>
 
-      <!-- Demo credentials info -->
-      <div class="login__demo" role="note" aria-label="Credenciais de demonstração">
-        <strong>Funcionário:</strong> carlos.silva@cptm.sp.gov.br / cptm2024<br/>
-        <strong>Gestor:</strong> gestor@cptm.sp.gov.br / gestor2024
+      <div class="auth-switch" role="tablist" aria-label="Tipo de acesso">
+        <button
+          class="auth-switch__btn"
+          :class="{ 'auth-switch__btn--active': authMode === 'login' }"
+          role="tab"
+          :aria-selected="authMode === 'login'"
+          @click="authMode = 'login'; erro = ''"
+        >
+          Entrar
+        </button>
+        <button
+          class="auth-switch__btn"
+          :class="{ 'auth-switch__btn--active': authMode === 'register' }"
+          role="tab"
+          :aria-selected="authMode === 'register'"
+          @click="authMode = 'register'; erro = ''"
+        >
+          Criar Login
+        </button>
       </div>
 
       <!-- Error message -->
@@ -32,12 +49,33 @@
         </div>
       </Transition>
 
-      <!-- Login form -->
-      <form class="login__form" @submit.prevent="handleLogin" novalidate>
+      <!-- Login/Register form -->
+      <form class="login__form" @submit.prevent="handleSubmit" novalidate>
+
+        <!-- Full name (register only) -->
+        <div v-if="authMode === 'register'" class="campo-grupo">
+          <label class="campo-label" for="nome-completo">Nome completo</label>
+          <div class="campo-wrapper">
+            <svg class="campo-icone" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 12c2.7 0 4.8-2.2 4.8-4.8S14.7 2.4 12 2.4 7.2 4.6 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8V22h19.2v-2.8c0-3.2-6.4-4.8-9.6-4.8z"/>
+            </svg>
+            <input
+              id="nome-completo"
+              v-model="form.fullName"
+              type="text"
+              autocomplete="name"
+              class="campo-input campo-input--icone"
+              placeholder="Nome e sobrenome"
+              required
+              aria-required="true"
+              :aria-invalid="erro ? 'true' : undefined"
+            />
+          </div>
+        </div>
 
         <!-- Email / Matrícula -->
         <div class="campo-grupo">
-          <label class="campo-label" for="email">E-mail ou Matrícula</label>
+          <label class="campo-label" for="email">E-mail</label>
           <div class="campo-wrapper">
             <svg class="campo-icone" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
@@ -47,9 +85,9 @@
               v-model="form.email"
               type="email"
               inputmode="email"
-              autocomplete="username"
+              autocomplete="email"
               class="campo-input campo-input--icone"
-              placeholder="seu@email.com"
+              placeholder="usuario@empresa.com"
               required
               aria-required="true"
               :aria-invalid="erro ? 'true' : undefined"
@@ -68,7 +106,7 @@
               id="senha"
               v-model="form.password"
               :type="showPassword ? 'text' : 'password'"
-              autocomplete="current-password"
+              :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'"
               class="campo-input campo-input--icone"
               style="padding-right: 52px"
               placeholder="••••••••"
@@ -93,8 +131,29 @@
           </div>
         </div>
 
+        <!-- Confirm password (register only) -->
+        <div v-if="authMode === 'register'" class="campo-grupo">
+          <label class="campo-label" for="confirmar-senha">Confirmar senha</label>
+          <div class="campo-wrapper">
+            <svg class="campo-icone" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 13-3-3 1.41-1.41L11 11.17l4.59-4.59L17 8l-6 6z"/>
+            </svg>
+            <input
+              id="confirmar-senha"
+              v-model="form.confirmPassword"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="new-password"
+              class="campo-input campo-input--icone"
+              placeholder="••••••••"
+              required
+              aria-required="true"
+              :aria-invalid="erro ? 'true' : undefined"
+            />
+          </div>
+        </div>
+
         <!-- Remember + Forgot -->
-        <div class="login__options">
+        <div v-if="authMode === 'login'" class="login__options">
           <label class="checkbox-wrapper">
             <input v-model="form.remember" type="checkbox" />
             <span class="checkbox-label">Lembrar acesso</span>
@@ -114,7 +173,7 @@
             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
           </svg>
           <span v-if="loading" class="login__spinner" aria-hidden="true"></span>
-          {{ loading ? 'Autenticando...' : 'Entrar' }}
+          {{ loading ? 'Processando...' : (authMode === 'login' ? 'Entrar' : 'Criar Login') }}
         </button>
 
       </form>
@@ -181,7 +240,8 @@ import LogoBadge from '@/components/LogoBadge.vue'
 const router  = useRouter()
 const auth    = useAuthStore()
 
-const form = reactive({ email: '', password: '', remember: false })
+const authMode = ref('login')
+const form = reactive({ fullName: '', email: '', password: '', confirmPassword: '', remember: false })
 const erro    = ref('')
 const loading = ref(false)
 const showPassword = ref(false)
@@ -189,26 +249,68 @@ const showForgot = ref(false)
 const forgotEmail = ref('')
 const forgotMsg   = ref(null)
 
+function goToUserArea() {
+  if (auth.isGestor) {
+    router.replace('/gestor')
+  } else {
+    router.replace(auth.needsOnboarding ? '/onboarding' : '/dashboard')
+  }
+}
+
 async function handleLogin() {
   erro.value = ''
   if (!form.email.trim() || !form.password.trim()) {
     erro.value = 'Preencha e-mail e senha para continuar.'
     return
   }
+
   loading.value = true
-  // Simulate async auth
-  await new Promise(r => setTimeout(r, 800))
-  const result = auth.login({ email: form.email, password: form.password })
+  const result = await auth.login({ email: form.email, password: form.password })
   loading.value = false
+
   if (result.success) {
-    if (auth.isGestor) {
-      router.replace('/gestor')
-    } else {
-      router.replace(auth.needsOnboarding ? '/onboarding' : '/dashboard')
-    }
+    goToUserArea()
   } else {
     erro.value = result.error || 'Credenciais inválidas.'
   }
+}
+
+async function handleRegister() {
+  erro.value = ''
+
+  if (!form.fullName.trim() || !form.email.trim() || !form.password.trim() || !form.confirmPassword.trim()) {
+    erro.value = 'Preencha nome completo, e-mail, senha e confirmação de senha.'
+    return
+  }
+
+  if (form.password !== form.confirmPassword) {
+    erro.value = 'Senha e confirmação não conferem.'
+    return
+  }
+
+  loading.value = true
+  const result = await auth.register({
+    fullName: form.fullName,
+    email: form.email,
+    password: form.password,
+    confirmPassword: form.confirmPassword,
+  })
+  loading.value = false
+
+  if (result.success) {
+    goToUserArea()
+  } else {
+    erro.value = result.error || 'Não foi possível criar a conta.'
+  }
+}
+
+async function handleSubmit() {
+  if (authMode.value === 'login') {
+    await handleLogin()
+    return
+  }
+
+  await handleRegister()
 }
 
 async function handleForgot() {
@@ -268,10 +370,13 @@ async function handleForgot() {
 }
 .login__header-sub {
   font-size: clamp(0.68rem, 2.5vw, 0.8rem);
-  color: rgba(255,255,255,.75);
+  color: #000000;
+  font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   z-index: 1;
+  position: relative;
+  top: 8px;
 }
 
 /* ---- Body ---- */
@@ -294,7 +399,31 @@ async function handleForgot() {
 .login__desc {
   font-size: var(--txt-sm);
   color: var(--cptm-cinza-claro);
-  margin-bottom: var(--s-xl);
+  margin-bottom: var(--s-md);
+}
+.auth-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--cptm-cinza-fundo);
+  border: 1px solid var(--cptm-cinza-borda);
+  border-radius: var(--r-md);
+  padding: 6px;
+  margin-bottom: var(--s-lg);
+}
+.auth-switch__btn {
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cptm-cinza-medio);
+  font-size: var(--txt-sm);
+  font-weight: 700;
+  padding: 10px 8px;
+  cursor: pointer;
+}
+.auth-switch__btn--active {
+  background: var(--cptm-vermelho);
+  color: white;
 }
 .login__demo {
   margin-top: calc(var(--s-md) * -1);

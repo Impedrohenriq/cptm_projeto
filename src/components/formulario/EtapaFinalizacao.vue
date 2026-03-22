@@ -67,9 +67,9 @@
     </div>
 
     <Transition name="fade">
-      <div v-if="!isOnline" class="alerta-offline">
+      <div v-if="!isOnline || !apiDisponivel" class="alerta-offline">
         <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
-        <span>Sem conexão — será salvo localmente e sincronizado depois.</span>
+        <span>{{ !isOnline ? 'Sem internet. As fotos ficam no dispositivo e entram na fila local.' : 'API indisponivel. O envio sera retomado quando o backend voltar.' }}</span>
       </div>
     </Transition>
 
@@ -79,12 +79,13 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useNetwork } from '@/composables/useNetwork'
+import { fileToOfflinePhoto } from '@/services/offlineMedia'
 
 const props = defineProps({ modelValue: { type: Object, required: true } })
 const emit  = defineEmits(['update:modelValue'])
 
 const v = props.modelValue
-const { isOnline } = useNetwork()
+const { isOnline, apiDisponivel } = useNetwork()
 const fileInput   = ref(null)
 let currentSlot   = 0
 
@@ -100,16 +101,13 @@ function triggerInput(idx) {
   fileInput.value.click()
 }
 
-function onFileChange(e) {
+async function onFileChange(e) {
   const file = e.target.files[0]
   if (!file) return
-  const reader = new FileReader()
-  reader.onload = (ev) => {
-    const novasFotos = [...fotos.value]
-    novasFotos[currentSlot] = { src: ev.target.result, nome: file.name }
-    emit('update:modelValue', { ...props.modelValue, fotos: novasFotos })
-  }
-  reader.readAsDataURL(file)
+
+  const novasFotos = [...fotos.value]
+  novasFotos[currentSlot] = await fileToOfflinePhoto(file, currentSlot)
+  emit('update:modelValue', { ...props.modelValue, fotos: novasFotos })
 }
 
 function removerFoto(idx) {
