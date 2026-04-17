@@ -128,6 +128,8 @@ export async function normalizePhotosForStorage(photos = []) {
       type: photo.type ?? blob?.type ?? 'image/jpeg',
       size: photo.size ?? blob?.size ?? null,
       orientacao: photo.orientacao ?? photo.dsOrientacao ?? 'Paisagem/Horizontal',
+      url: photo.url ?? photo.fotoUrl ?? null,
+      src: photo.src ?? photo.url ?? photo.fotoUrl ?? null,
       blob,
     })
   }

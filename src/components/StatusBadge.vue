@@ -1,5 +1,6 @@
 <template>
   <span class="badge" :class="`badge--${status}`">
+    <span class="badge__dot" aria-hidden="true"></span>
     {{ LABELS[status] || status }}
   </span>
 </template>
@@ -7,10 +8,10 @@
 <script setup>
 const LABELS = {
   rascunho: 'Rascunho',
-  pendente_sync: 'Pendente Sync',
+  pendente_sync: 'Aguardando sync',
   sincronizando: 'Sincronizando',
   sincronizado: 'Sincronizado',
-  erro_sync: 'Erro de Sync',
+  erro_sync: 'Erro de sync',
 }
 
 defineProps({
@@ -19,6 +20,24 @@ defineProps({
 </script>
 
 <style scoped>
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.9;
+}
+
 .badge--rascunho {
   background: #fff3e0;
   color: #e65100;

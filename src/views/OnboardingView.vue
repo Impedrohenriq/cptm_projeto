@@ -30,7 +30,7 @@
         :style="{ transform: `translateX(-${current * 100}%)` }"
       >
         <!-- Slide 1 -->
-        <article class="onboarding__slide slide--1" role="group" aria-roledescription="slide" :aria-label="`Passo 1 de ${total}: Bem-vindo`">
+        <article class="onboarding__slide slide--1" role="group" aria-roledescription="slide" :aria-label="`Passo 1 de ${total}: Como começar`">
           <div class="slide__illus illus--red" aria-hidden="true">
             <svg class="slide__icon-main" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="16" y="20" width="64" height="60" rx="6" fill="#C8102E" opacity="0.15"/>
@@ -46,12 +46,17 @@
             </div>
           </div>
           <p class="slide__step" aria-hidden="true">Passo 1 de {{ total }}</p>
-          <h2 class="slide__title">Bem-vindo à Inspeção Ambiental CPTM</h2>
-          <p class="slide__desc">Registre ocorrências ambientais de forma rápida, organizada e segura diretamente do campo.</p>
+          <h2 class="slide__title">Como iniciar uma inspeção</h2>
+          <p class="slide__desc">No painel, toque em Nova Inspeção e preencha as etapas na ordem. A barra superior mostra seu progresso em tempo real.</p>
+          <ul class="slide__checklist" aria-label="Checklist para iniciar">
+            <li>Preencha os dados obrigatórios de cada etapa.</li>
+            <li>Use os botões Próxima Etapa e Voltar para revisar.</li>
+            <li>Você pode sair e continuar depois sem perder o rascunho.</li>
+          </ul>
         </article>
 
         <!-- Slide 2 -->
-        <article class="onboarding__slide slide--2" role="group" aria-roledescription="slide" :aria-label="`Passo 2 de ${total}: GPS e câmera`">
+        <article class="onboarding__slide slide--2" role="group" aria-roledescription="slide" :aria-label="`Passo 2 de ${total}: Evidências e offline`">
           <div class="slide__illus illus--green" aria-hidden="true">
             <svg class="slide__icon-main" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect x="10" y="30" width="76" height="52" rx="6" fill="#2E7D32" opacity="0.15"/>
@@ -68,12 +73,17 @@
             </div>
           </div>
           <p class="slide__step" aria-hidden="true">Passo 2 de {{ total }}</p>
-          <h2 class="slide__title">Documente com GPS e Câmera</h2>
-          <p class="slide__desc">Use câmera e GPS para registrar evidências com precisão em tempo real, mesmo offline.</p>
+          <h2 class="slide__title">Registre evidências com segurança</h2>
+          <p class="slide__desc">Anexe fotos e use GPS quando necessário. Mesmo sem internet, o app salva localmente e mantém os dados prontos para sincronizar.</p>
+          <ul class="slide__checklist" aria-label="Checklist de evidências">
+            <li>Tire fotos para comprovar a condição no local.</li>
+            <li>Preencha latitude e longitude com GPS quando aplicável.</li>
+            <li>Se ficar offline, continue normalmente: o rascunho permanece salvo.</li>
+          </ul>
         </article>
 
         <!-- Slide 3 -->
-        <article class="onboarding__slide slide--3" role="group" aria-roledescription="slide" :aria-label="`Passo 3 de ${total}: Pronto para começar`">
+        <article class="onboarding__slide slide--3" role="group" aria-roledescription="slide" :aria-label="`Passo 3 de ${total}: Enviar e acompanhar`">
           <div class="slide__illus illus--blue" aria-hidden="true">
             <svg class="slide__icon-main" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M48 8 L80 22 L80 50 C80 68 64 80 48 86 C32 80 16 68 16 50 L16 22 Z" fill="#1565C0" opacity="0.15"/>
@@ -85,8 +95,13 @@
             </div>
           </div>
           <p class="slide__step" aria-hidden="true">Passo 3 de {{ total }}</p>
-          <h2 class="slide__title">Sua segurança e o meio ambiente em primeiro lugar</h2>
-          <p class="slide__desc">Pronto! Juntos protegemos as linhas da CPTM e o meio ambiente. Vamos começar!</p>
+          <h2 class="slide__title">Envio e acompanhamento da inspeção</h2>
+          <p class="slide__desc">Ao enviar, o sistema confirma no backend quando a API estiver disponível. No painel, acompanhe o status de cada item.</p>
+          <ul class="slide__checklist" aria-label="Checklist de envio">
+            <li>Finalize e toque em Enviar Inspeção.</li>
+            <li>Se a API estiver indisponível, o item fica em fila local.</li>
+            <li>No dashboard, use sincronização manual quando necessário.</li>
+          </ul>
         </article>
       </div>
     </div>
@@ -297,6 +312,36 @@ onUnmounted(() => unbind())
   color: var(--cptm-cinza-medio);
   line-height: 1.65;
   max-width: 300px;
+}
+
+.slide__checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(320px, 100%);
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.slide__checklist li {
+  position: relative;
+  padding-left: 22px;
+  font-size: var(--txt-sm);
+  line-height: 1.45;
+  color: var(--cptm-cinza-medio);
+}
+
+.slide__checklist li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.42em;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--cptm-vermelho);
+  opacity: 0.85;
 }
 
 /* Footer */

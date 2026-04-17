@@ -250,4 +250,11 @@ function handleLogout() {
 .conta__logout:active {
   transform: scale(0.98);
 }
+
+@media (min-width: 600px) {
+  .conta {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
 </style>

@@ -27,6 +27,12 @@ const routes = [
     meta: { requiresAuth: true, showBottomNav: true }
   },
   {
+    path: '/inspecoes-recentes',
+    name: 'inspecoes-recentes',
+    component: () => import('@/views/InspecoesRecentesView.vue'),
+    meta: { requiresAuth: true, showBottomNav: true }
+  },
+  {
     path: '/formulario',
     name: 'formulario',
     component: () => import('@/views/FormularioView.vue'),

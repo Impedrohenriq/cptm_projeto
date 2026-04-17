@@ -86,7 +86,7 @@
 
     <div class="fdc-field">
       <label class="fdc-lbl" for="idAreaGestora">Identificador da Área Gestora CPTM</label>
-      <div class="fdc-hint">Campo do banco: CD_IDENT_AREA_GESTORA. Ex: ID.10-15-5-3-0000</div>
+      <div class="fdc-hint">Ex: ID.10-15-5-3-0000</div>
       <div class="fdc-wrap">
         <input id="idAreaGestora" class="fdc-input" type="text"
           :value="v.idAreaGestora"
@@ -99,7 +99,7 @@
 
     <div class="fdc-field">
       <label class="fdc-lbl" for="siglaAreaGestora">Sigla da Área Gestora CPTM</label>
-      <div class="fdc-hint">Campo do banco: SG_AREA_GESTORA_CPTM. Ex: DO.GOF.DOFS.0000</div>
+      <div class="fdc-hint">Ex: DO.GOF.DOFS.0000</div>
       <div class="fdc-wrap">
         <input id="siglaAreaGestora" class="fdc-input" type="text"
           :value="v.siglaAreaGestora"
@@ -134,26 +134,26 @@
 
     <div class="fdc-field">
       <label class="fdc-lbl req" for="autorCadastro">Autor(a) do Cadastramento</label>
-      <div class="fdc-wrap">
-        <input id="autorCadastro" class="fdc-input" type="text"
+      <div class="fdc-wrap" :class="{ 'fdc-wrap--locked': isLocked(v.autorCadastro) }">
+        <input id="autorCadastro" class="fdc-input" :class="{ 'fdc-input--locked': isLocked(v.autorCadastro) }" type="text"
           :value="v.autorCadastro"
           placeholder="Nome completo de quem preencheu o formulário"
+          :readonly="isLocked(v.autorCadastro)"
           @input="u('autorCadastro', $event.target.value)" />
-        <button v-if="v.autorCadastro" class="fdc-clear" type="button"
-          @click="u('autorCadastro', '')" aria-label="Limpar">×</button>
       </div>
+      <div class="fdc-hint">Preenchido automaticamente com o nome da conta logada.</div>
     </div>
 
     <div class="fdc-field">
       <label class="fdc-lbl req" for="responsavelTecnico">Responsável Técnico (RT) pelo Cadastramento</label>
-      <div class="fdc-wrap">
-        <input id="responsavelTecnico" class="fdc-input" type="text"
+      <div class="fdc-wrap" :class="{ 'fdc-wrap--locked': isLocked(v.responsavelTecnico) }">
+        <input id="responsavelTecnico" class="fdc-input" :class="{ 'fdc-input--locked': isLocked(v.responsavelTecnico) }" type="text"
           :value="v.responsavelTecnico"
           placeholder="Nome completo do(a) RT"
+          :readonly="isLocked(v.responsavelTecnico)"
           @input="u('responsavelTecnico', $event.target.value)" />
-        <button v-if="v.responsavelTecnico" class="fdc-clear" type="button"
-          @click="u('responsavelTecnico', '')" aria-label="Limpar">×</button>
       </div>
+      <div class="fdc-hint">Preenchido automaticamente com o nome da conta logada.</div>
     </div>
 
     <div class="fdc-field">
@@ -204,8 +204,20 @@ const AREAS_GESTORAS = [
 function u(field, val) {
   emit('update:modelValue', { ...props.modelValue, [field]: val })
 }
+
+function isLocked(value) {
+  return String(value ?? '').trim().length > 0
+}
 </script>
 
 <style scoped>
 .fdc-etapa { padding: var(--s-lg) var(--s-md); animation: fadeInUp 0.3s ease both; }
+
+.fdc-wrap--locked {
+  opacity: 0.72;
+}
+
+.fdc-input--locked {
+  cursor: not-allowed;
+}
 </style>

@@ -84,6 +84,15 @@
   --bottom-nav-h: 68px;
 }
 
+/* ---- Responsive typography — telas muito pequenas (≤ 360px) ---- */
+@media (max-width: 360px) {
+  :root {
+    --txt-xl:  1.25rem;   /* 24 → 20px */
+    --txt-2xl: 1.5rem;    /* 30 → 24px */
+    --txt-3xl: 1.875rem;  /* 36 → 30px */
+  }
+}
+
 /* Dark mode (future-ready) */
 @media (prefers-color-scheme: dark) {
   :root.auto-dark {

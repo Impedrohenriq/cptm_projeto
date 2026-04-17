@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, markRaw, computed, watch, onMounted } from 'vue'
+import { ref, reactive, markRaw, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useInspecoesStore } from '@/stores/inspecoes'
 import { useAuthStore } from '@/stores/auth'
@@ -139,6 +139,7 @@ const transitionDir = ref('slide-next')
 const autoSaved    = ref(false)
 const currentLocalId = ref(null)
 const carregandoFormulario = ref(true)
+const pausandoAutoSave = ref(false)
 const modalState = reactive({ show: false, title: '', desc: '' })
 
 const progressPct = computed(() => (etapaAtual.value / (totalEtapas - 1)) * 100)
@@ -178,8 +179,37 @@ function criarDadosIniciais() {
 
 const dados = reactive(criarDadosIniciais())
 
+const usuarioAtual = computed(() => auth.currentUser?.value ?? auth.currentUser)
+
+function valorTexto(value) {
+  return String(value ?? '').trim()
+}
+
+function aplicarPrefillUsuarioLogado() {
+  const nomeCompleto = valorTexto(usuarioAtual.value?.name)
+  if (!nomeCompleto) return
+
+  const updates = {}
+
+  if (!valorTexto(dados.autorCadastro)) {
+    updates.autorCadastro = nomeCompleto
+  }
+
+  if (!valorTexto(dados.autorFormulario)) {
+    updates.autorFormulario = nomeCompleto
+  }
+
+  if (!valorTexto(dados.responsavelTecnico)) {
+    updates.responsavelTecnico = nomeCompleto
+  }
+
+  if (Object.keys(updates).length) {
+    Object.assign(dados, updates)
+  }
+}
+
 function dadosComFuncionario() {
-  const u = auth.currentUser
+  const u = usuarioAtual.value
   return {
     ...dados,
     localId: currentLocalId.value,
@@ -196,7 +226,7 @@ function irParaEtapa(i) { transitionDir.value = i < etapaAtual.value ? 'slide-pr
 
 let autoSaveTimer = null
 watch(dados, () => {
-  if (carregandoFormulario.value) return
+  if (carregandoFormulario.value || pausandoAutoSave.value) return
   clearTimeout(autoSaveTimer)
   autoSaveTimer = setTimeout(async () => {
     const salvo = await store.salvarRascunho(dadosComFuncionario())
@@ -213,27 +243,44 @@ function aplicarDados(item) {
   }
 }
 
+async function aplicarDadosSemAutoSave(item) {
+  pausandoAutoSave.value = true
+  clearTimeout(autoSaveTimer)
+  aplicarDados(item)
+  await nextTick()
+  pausandoAutoSave.value = false
+}
+
 async function carregarFormularioDaRota() {
   const localId = typeof route.query.localId === 'string' ? route.query.localId : null
 
   if (!localId) {
-    return
+    return false
   }
 
   const item = await store.carregarPorLocalId(localId)
   if (item) {
     currentLocalId.value = item.localId
-    aplicarDados(item)
+    await aplicarDadosSemAutoSave(item)
+    return true
   }
+
+  return false
 }
 
 onMounted(async () => {
   try {
     await store.initialize()
     await carregarFormularioDaRota()
+    aplicarPrefillUsuarioLogado()
   } finally {
     carregandoFormulario.value = false
   }
+})
+
+watch(usuarioAtual, () => {
+  if (currentLocalId.value) return
+  aplicarPrefillUsuarioLogado()
 })
 
 watch(
@@ -241,6 +288,7 @@ watch(
   async (newLocalId, oldLocalId) => {
     if (!newLocalId || newLocalId === oldLocalId || carregandoFormulario.value) return
     await carregarFormularioDaRota()
+    aplicarPrefillUsuarioLogado()
   }
 )
 
@@ -252,6 +300,8 @@ async function salvarRascunho() {
 }
 
 async function enviarInspecao()  {
+  clearTimeout(autoSaveTimer)
+
   const resultado = await store.enfileirarParaSync(dadosComFuncionario())
 
   currentLocalId.value = resultado.local?.localId ?? currentLocalId.value
@@ -391,6 +441,12 @@ function voltarAoDashboard() {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(var(--h-btn) + var(--bottom-nav-h) + 44px + var(--safe-bottom));
+}
+@media (min-width: 600px) {
+  .fv-body :deep(.fdc-etapa) {
+    max-width: 480px;
+    margin: 0 auto;
+  }
 }
 
 /* ====================================================

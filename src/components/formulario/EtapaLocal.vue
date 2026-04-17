@@ -56,19 +56,19 @@
 
     <div class="fdc-field">
       <label class="fdc-lbl req" for="autorFormulario">Autor(a) do Formulário</label>
-      <div class="fdc-wrap">
-        <input id="autorFormulario" class="fdc-input" type="text"
+      <div class="fdc-wrap" :class="{ 'fdc-wrap--locked': isLocked(v.autorFormulario) }">
+        <input id="autorFormulario" class="fdc-input" :class="{ 'fdc-input--locked': isLocked(v.autorFormulario) }" type="text"
           :value="v.autorFormulario"
           placeholder="Nome completo do autor do formulário"
+          :readonly="isLocked(v.autorFormulario)"
           @input="u('autorFormulario', $event.target.value)" />
-        <button v-if="v.autorFormulario" class="fdc-clear" type="button"
-          @click="u('autorFormulario', '')" aria-label="Limpar">×</button>
       </div>
+      <div class="fdc-hint">Preenchido automaticamente com o nome da conta logada.</div>
     </div>
 
     <div class="fdc-field">
       <label class="fdc-lbl" for="nomeArquivoFdc">Nome do Arquivo FDC</label>
-      <div class="fdc-hint">Campo do banco: NM_ARQUIVO_FDC. Pode manter em branco quando não houver nomenclatura oficial.</div>
+      <div class="fdc-hint">Pode manter em branco quando não houver nomenclatura oficial.</div>
       <div class="fdc-wrap">
         <input id="nomeArquivoFdc" class="fdc-input" type="text"
           :value="v.nomeArquivoFdc"
@@ -81,7 +81,7 @@
 
     <div class="fdc-field">
       <label class="fdc-lbl" for="codigoArquivoFdc">Código do Arquivo FDC</label>
-      <div class="fdc-hint">Campo do banco: CD_ARQUIVO_FDC. Pode deixar em branco quando não aplicável.</div>
+      <div class="fdc-hint">Pode deixar em branco quando não aplicável.</div>
       <div class="fdc-wrap">
         <input id="codigoArquivoFdc" class="fdc-input" type="text"
           :value="v.codigoArquivoFdc"
@@ -147,8 +147,20 @@ const codigoFDC = computed(() => {
 function u(field, val) {
   emit('update:modelValue', { ...props.modelValue, [field]: val })
 }
+
+function isLocked(value) {
+  return String(value ?? '').trim().length > 0
+}
 </script>
 
 <style scoped>
 .fdc-etapa { padding: var(--s-lg) var(--s-md); animation: fadeInUp 0.3s ease both; }
+
+.fdc-wrap--locked {
+  opacity: 0.72;
+}
+
+.fdc-input--locked {
+  cursor: not-allowed;
+}
 </style>

@@ -25,6 +25,7 @@ import {
   syncInspectionRecord,
   toSyncErrorMessage,
 } from '@/services/syncEngine.js'
+import { useNotificacoesStore } from '@/stores/notificacoes.js'
 
 const LEGACY_INSPECOES_KEY = 'cptm_inspecoes'
 const MIGRATION_META_KEY = 'legacy-inspections-migrated'
@@ -51,6 +52,47 @@ function clone(value) {
 
 function sortByUpdatedAt(items) {
   return [...items].sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))
+}
+
+function normalizeText(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function initialsFromName(name) {
+  const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return '??'
+
+  const first = parts[0][0] ?? ''
+  const second = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : (parts[0][1] ?? '')
+  return `${first}${second}`.toUpperCase() || '??'
+}
+
+function withOwnershipFallback(payload) {
+  const funcionarioNome = payload.funcionarioNome || payload.autorCadastro || payload.autorFormulario || ''
+  const funcionarioInitials = payload.funcionarioInitials || initialsFromName(funcionarioNome)
+
+  return {
+    ...payload,
+    funcionarioNome,
+    funcionarioInitials,
+  }
+}
+
+function preserveOwnership(serverPayload, localPayload = null) {
+  if (!localPayload) {
+    return withOwnershipFallback(serverPayload)
+  }
+
+  return withOwnershipFallback({
+    ...serverPayload,
+    funcionarioId: localPayload.funcionarioId || serverPayload.funcionarioId,
+    funcionarioNome: localPayload.funcionarioNome || serverPayload.funcionarioNome,
+    funcionarioInitials: localPayload.funcionarioInitials || serverPayload.funcionarioInitials,
+  })
 }
 
 function mapLegacyStatus(status, item) {
@@ -102,7 +144,7 @@ function resolveServerTimestamp(payload) {
 }
 
 function materializeRecord(record) {
-  const payload = attachPreviewUrls(clone(record.payload))
+  const payload = withOwnershipFallback(attachPreviewUrls(clone(record.payload)))
 
   return {
     ...payload,
@@ -136,6 +178,7 @@ async function hydrateServerPayload(serverItem) {
 }
 
 export const useInspecoesStore = defineStore('inspecoes', () => {
+  const notificacoes = useNotificacoesStore()
   const inspecoes = ref([])
   const loading = ref(false)
   const erro = ref(null)
@@ -341,7 +384,7 @@ export const useInspecoesStore = defineStore('inspecoes', () => {
 
     const payload = await normalizePayloadForStorage({
       ...payloadFromItem(item),
-      chavePrimariaMa: item.chavePrimariaMa ?? existingRecord?.chavePrimariaMa ?? api.buildChavePrimariaMa(item),
+      chavePrimariaMa: item.chavePrimariaMa ?? existingRecord?.chavePrimariaMa ?? null,
     })
 
     const record = criarRegistroBase(payload, overrides, existingRecord)
@@ -536,6 +579,19 @@ export const useInspecoesStore = defineStore('inspecoes', () => {
           }, sourceRecord)
 
           await salvarRegistro(syncedRecord, { removerDaFila: true })
+
+          const contratada = syncedRecord.payload?.nomeContratada || syncedRecord.payload?.nmContratada || 'Inspecao'
+          const estacao = syncedRecord.payload?.estacao || syncedRecord.payload?.nmEstacaoCptm || syncedRecord.payload?.nomeLocal || ''
+          const resumo = estacao ? `${contratada} - ${estacao}` : contratada
+
+          notificacoes.push({
+            type: 'success',
+            title: 'Inspecao sincronizada',
+            message: `${resumo} enviada com sucesso.`,
+            dedupeKey: `sync-success-${syncedRecord.localId}-${syncedRecord.syncedAt ?? syncedRecord.updatedAt}`,
+            localId: syncedRecord.localId,
+          })
+
           resultados.push({ localId: syncedRecord.localId, sucesso: true })
         } catch (syncError) {
           const failedRecord = criarRegistroBase(record.payload, {
@@ -585,7 +641,8 @@ export const useInspecoesStore = defineStore('inspecoes', () => {
     }
 
     for (const serverItem of itensServidor) {
-      const payload = await hydrateServerPayload(serverItem)
+      const payloadServidor = await hydrateServerPayload(serverItem)
+      const payload = withOwnershipFallback(payloadServidor)
       const localRecord = byChave.get(payload.chavePrimariaMa)
 
       if (!localRecord) {
@@ -621,8 +678,9 @@ export const useInspecoesStore = defineStore('inspecoes', () => {
         continue
       }
 
+      const payloadComVinculo = preserveOwnership(payload, localRecord.payload)
       const serverTimestamp = resolveServerTimestamp(payload)
-      updates.push(criarRegistroBase(payload, {
+      updates.push(criarRegistroBase(payloadComVinculo, {
         syncStatus: SYNC_STATUS.SYNCED,
         pendingOperation: 'update',
         retryCount: 0,
@@ -673,8 +731,23 @@ export const useInspecoesStore = defineStore('inspecoes', () => {
     await recarregarDoIndexedDb()
   }
 
-  function porFuncionario(funcionarioId) {
-    return sortByUpdatedAt(inspecoes.value.filter((item) => item.funcionarioId === funcionarioId))
+  function porFuncionario(funcionarioId, funcionarioNome = null) {
+    const id = normalizeText(funcionarioId)
+    const nome = normalizeText(funcionarioNome)
+
+    return sortByUpdatedAt(inspecoes.value.filter((item) => {
+      const itemId = normalizeText(item.funcionarioId)
+      if (id && itemId && itemId === id) {
+        return true
+      }
+
+      if (!nome) {
+        return false
+      }
+
+      const candidatoNome = normalizeText(item.funcionarioNome || item.autorCadastro || item.autorFormulario)
+      return candidatoNome && candidatoNome === nome
+    }))
   }
 
   async function carregarPorLocalId(localId) {

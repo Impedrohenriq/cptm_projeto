@@ -9,9 +9,9 @@
       </div>
     </div>
 
-    <div class="fdc-auto">
-      <div class="fdc-auto__lbl">Chave Primária MA (automática)</div>
-      <div class="fdc-auto__val">{{ chavePrimaria }}</div>
+    <div class="fdc-auto fdc-auto--locked">
+      <div class="fdc-auto__lbl">Chave Primária MA</div>
+      <div class="fdc-auto__val">{{ v.chavePrimariaMa || 'Gerada automaticamente pelo backend no envio.' }}</div>
     </div>
 
     <div class="fdc-row">
@@ -160,7 +160,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
 const props = defineProps({ modelValue: { type: Object, required: true } })
 const emit  = defineEmits(['update:modelValue'])
@@ -192,12 +192,6 @@ const VIAS = [
   'Via 03D - Trecho 1','Via 03D - Trecho 2','Via Única',
 ]
 
-const chavePrimaria = computed(() => {
-  const ano = v.dataEmissao ? v.dataEmissao.substring(0, 4) : new Date().getFullYear()
-  const num = v.emNumero ? String(v.emNumero).padStart(6, '0') : '000001'
-  return `EEA.EF-A.${ano}-L.00-CPTM-N.${num}`
-})
-
 function u(field, val) {
   emit('update:modelValue', { ...props.modelValue, [field]: val })
 }
@@ -222,4 +216,8 @@ function obterGPS() {
 
 <style scoped>
 .fdc-etapa { padding: var(--s-lg) var(--s-md); animation: fadeInUp 0.3s ease both; }
+
+.fdc-auto--locked {
+  opacity: 0.72;
+}
 </style>

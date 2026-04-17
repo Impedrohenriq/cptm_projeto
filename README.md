@@ -39,10 +39,13 @@ Agora:
   - prepara fotos offline, persiste em Blob e serializa para a API no envio
 
 - `src/services/syncEngine.js`
-  - sincroniza pendencias item a item
+  - sincroniza pendencias item a item e calcula retry com backoff exponencial
 
 - `src/services/api.js`
   - health check, chamadas HTTP e mapeamento DTO
+
+- `src/sw.js`
+  - service worker customizado (PWA injectManifest) com gatilho de Background Sync
 
 ## Fluxo Offline-First
 
@@ -52,6 +55,22 @@ Agora:
 4. O app escuta o evento `online`
 5. Quando internet e API estiverem disponiveis, a fila e reenviada
 6. Somente depois da resposta positiva da API o item vira `sincronizado`
+
+## Background Sync + Backoff
+
+- O app registra `background sync` com tag `cptm-sync` quando um item entra na fila.
+- O Service Worker dispara mensagem para o app tentar sincronizar pendencias.
+- Em falhas retryable (rede/5xx/429/408), o app usa backoff exponencial com jitter.
+
+Configuracao atual (frontend):
+
+- `baseDelayMs`: 2000
+- `maxDelayMs`: 60000
+- `maxRetries`: 5
+
+Observacao:
+
+- Navegadores sem suporte a Background Sync continuam funcionando pelo fluxo de fallback em foreground (`online` listener + tentativa manual).
 
 ## Health Check
 
@@ -70,6 +89,7 @@ Nao basta `navigator.onLine` estar `true`.
 
 ```bash
 npm install
+npm test
 npm run build
 npm run dev
 ```

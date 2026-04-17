@@ -93,62 +93,124 @@ async function serializeFoto(photo, index) {
   }
 }
 
+function asNullableString(value) {
+  if (value === null || value === undefined) return null
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length ? trimmed : null
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  if (typeof value === 'object') {
+    const candidate = value.value ?? value.label ?? value.nome ?? value.name ?? value.text ?? value.descricao
+    if (candidate !== undefined) {
+      return asNullableString(candidate)
+    }
+
+    for (const nested of Object.values(value)) {
+      if (nested === null || nested === undefined) continue
+      if (typeof nested === 'string' || typeof nested === 'number' || typeof nested === 'boolean') {
+        return asNullableString(nested)
+      }
+    }
+  }
+
+  return null
+}
+
+function asNullableNumber(value) {
+  if (value === null || value === undefined) return null
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().replace(',', '.')
+    if (!normalized) return null
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0
+  }
+
+  if (typeof value === 'object') {
+    const candidate = value.value ?? value.numero ?? value.number ?? value.valor ?? value.amount ?? value.quantidade
+    if (candidate !== undefined) {
+      return asNullableNumber(candidate)
+    }
+
+    for (const nested of Object.values(value)) {
+      const parsed = asNullableNumber(nested)
+      if (parsed !== null) return parsed
+    }
+  }
+
+  return null
+}
+
 export async function paraDto(inspecao) {
-  const chavePrimariaMa = buildChavePrimariaMa(inspecao)
+  const chavePrimariaMa = asNullableString(inspecao.chavePrimariaMa)
   const isoData = (valor) => valor ? new Date(valor).toISOString() : new Date().toISOString()
 
   return {
     chavePrimariaMa,
     nrElementoMonit: String(inspecao.emNumero ?? 1).padStart(6, '0'),
-    nmElementoMonit: inspecao.emNome ?? null,
-    nmContratada: inspecao.nomeContratada ?? '',
-    nrContrato: inspecao.numContrato ?? null,
-    nmLocalEscopo: inspecao.localEscopo ?? null,
-    nmRepresentante: inspecao.representante ?? null,
-    sgAreaMeioAmbiente: inspecao.siglaArea ?? null,
-    nmAreaGestoraCptm: inspecao.nomeAreaGestora ?? null,
-    cdIdentAreaGestora: inspecao.idAreaGestora ?? null,
-    sgAreaGestoraCptm: inspecao.siglaAreaGestora ?? null,
-    nmSupervisoraAmbiental: inspecao.nomeSupervisora ?? null,
-    nmAutorCadastramento: inspecao.autorCadastro ?? '',
-    nmResponsavelTecnico: inspecao.responsavelTecnico ?? '',
-    nrRegistroProfissional: inspecao.registroProfissional ?? null,
-    dsDocRespTecnica: inspecao.docRT ?? null,
-    dsNaturezaPga: inspecao.naturezaPGA ?? null,
+    nmElementoMonit: asNullableString(inspecao.emNome),
+    nmContratada: asNullableString(inspecao.nomeContratada) ?? '',
+    nrContrato: asNullableString(inspecao.numContrato),
+    nmLocalEscopo: asNullableString(inspecao.localEscopo),
+    nmRepresentante: asNullableString(inspecao.representante),
+    sgAreaMeioAmbiente: asNullableString(inspecao.siglaArea),
+    nmAreaGestoraCptm: asNullableString(inspecao.nomeAreaGestora),
+    cdIdentAreaGestora: asNullableString(inspecao.idAreaGestora),
+    sgAreaGestoraCptm: asNullableString(inspecao.siglaAreaGestora),
+    nmSupervisoraAmbiental: asNullableString(inspecao.nomeSupervisora),
+    nmAutorCadastramento: asNullableString(inspecao.autorCadastro) ?? '',
+    nmResponsavelTecnico: asNullableString(inspecao.responsavelTecnico) ?? '',
+    nrRegistroProfissional: asNullableString(inspecao.registroProfissional),
+    dsDocRespTecnica: asNullableString(inspecao.docRT),
+    dsNaturezaPga: asNullableString(inspecao.naturezaPGA),
     dsTipoFormulario: 'Formulario de Cadastramento - FDC (FDC-EEA.EF)',
     dtEmissaoFormulario: isoData(inspecao.dataEmissao),
     nrFormulario: String(inspecao.numFormulario ?? 1).padStart(6, '0'),
-    nmAutorFormulario: inspecao.autorFormulario ?? null,
-    nmArquivoFdc: inspecao.nomeArquivoFdc ?? null,
-    cdArquivoFdc: inspecao.codigoArquivoFdc ?? null,
+    nmAutorFormulario: asNullableString(inspecao.autorFormulario),
+    nmArquivoFdc: asNullableString(inspecao.nomeArquivoFdc),
+    cdArquivoFdc: asNullableString(inspecao.codigoArquivoFdc),
     dtCadastramento: isoData(inspecao.dataCadastramento),
-    hrCadastramento: inspecao.horaCadastramento ?? null,
-    nmMunicipio: inspecao.municipio ?? null,
-    nmLinhaCptm: inspecao.linha ?? null,
-    nmEstacaoCptm: inspecao.estacao ?? null,
-    nrViaLinhaCptm: inspecao.via ?? null,
-    dsTrechoSentidoCptm: inspecao.trechoSentido ?? null,
-    nrKmPoste: inspecao.kmPoste ?? null,
-    nrLatitude: inspecao.latitude ?? null,
-    nrLongitude: inspecao.longitude ?? null,
-    dsTipoAtividadeList: inspecao.tipoAtividadeListada ?? null,
-    dsTipoAtividadeNlist: inspecao.tipoAtividadeNaoListada ?? null,
-    dsTipoDraList: inspecao.tipoDRAListado ?? null,
-    dsTipoDraNlist: inspecao.tipoDRANaoListado ?? null,
-    cdIdentificadorDra: inspecao.codigoDRA ?? null,
+    hrCadastramento: asNullableString(inspecao.horaCadastramento),
+    nmMunicipio: asNullableString(inspecao.municipio),
+    nmLinhaCptm: asNullableString(inspecao.linha),
+    nmEstacaoCptm: asNullableString(inspecao.estacao),
+    nrViaLinhaCptm: asNullableString(inspecao.via),
+    dsTrechoSentidoCptm: asNullableString(inspecao.trechoSentido),
+    nrKmPoste: asNullableString(inspecao.kmPoste),
+    nrLatitude: asNullableNumber(inspecao.latitude),
+    nrLongitude: asNullableNumber(inspecao.longitude),
+    dsTipoAtividadeList: asNullableString(inspecao.tipoAtividadeListada),
+    dsTipoAtividadeNlist: asNullableString(inspecao.tipoAtividadeNaoListada),
+    dsTipoDraList: asNullableString(inspecao.tipoDRAListado),
+    dsTipoDraNlist: asNullableString(inspecao.tipoDRANaoListado),
+    cdIdentificadorDra: asNullableString(inspecao.codigoDRA),
     dtValidadeDra: inspecao.dataValidadeDRA ? new Date(inspecao.dataValidadeDRA).toISOString() : null,
-    dsTipoAtividadeCptm: inspecao.tipoAtividadeCPTM ?? null,
-    nmLocalEdificacao: inspecao.nomeLocal ?? null,
-    dsLocalComplemento: inspecao.complementoLocal ?? null,
-    dsOrigemEfluente: inspecao.origemEfluente ?? null,
-    dsFonteGeradora: inspecao.fonteGeradora ?? null,
-    nrQuantidadeLitros: inspecao.quantidadeLitros ?? null,
-    dsTipoDestinacao: inspecao.tipoDestinacao ?? null,
-    dsTipoVeiculo: inspecao.tipoVeiculo ?? null,
-    cdPlacaVeiculo: inspecao.placaVeiculo ?? null,
-    cdGuiaRemessa: inspecao.codigoGuiaRemessa ?? null,
-    nrDistanciaViaM: inspecao.distanciaVia ?? null,
-    dsObservacoesCadastro: inspecao.observacoesGerais ?? null,
+    dsTipoAtividadeCptm: asNullableString(inspecao.tipoAtividadeCPTM),
+    nmLocalEdificacao: asNullableString(inspecao.nomeLocal),
+    dsLocalComplemento: asNullableString(inspecao.complementoLocal),
+    dsOrigemEfluente: asNullableString(inspecao.origemEfluente),
+    dsFonteGeradora: asNullableString(inspecao.fonteGeradora),
+    nrQuantidadeLitros: asNullableNumber(inspecao.quantidadeLitros),
+    dsTipoDestinacao: asNullableString(inspecao.tipoDestinacao),
+    dsTipoVeiculo: asNullableString(inspecao.tipoVeiculo),
+    cdPlacaVeiculo: asNullableString(inspecao.placaVeiculo),
+    cdGuiaRemessa: asNullableString(inspecao.codigoGuiaRemessa),
+    nrDistanciaViaM: asNullableNumber(inspecao.distanciaVia),
+    dsObservacoesCadastro: asNullableString(inspecao.observacoesGerais),
     fotos: await Promise.all((inspecao.fotos ?? []).map((foto, index) => serializeFoto(foto, index))),
   }
 }

@@ -449,8 +449,8 @@ input[type="date"].fdc-input, input[type="time"].fdc-input { padding-right: 10px
 .fdc-auto__lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cptm-cinza-claro); margin-bottom: 4px; }
 .fdc-auto__val { font-size: var(--txt-sm); font-weight: 600; color: var(--cptm-cinza-escuro); font-family: monospace; letter-spacing: 0.02em; word-break: break-all; }
 
-/* ---- Two-column row ---- */
-.fdc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* ---- Two-column row (collapses to 1 col on very small screens) ---- */
+.fdc-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
 
 /* ---- GPS button ---- */
 .fdc-gps {

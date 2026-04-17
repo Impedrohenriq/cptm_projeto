@@ -123,7 +123,7 @@ function removerFoto(idx) {
 .fdc-sec__badge--verde { background: var(--verde-principal); }
 
 .fotos-grade {
-  display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-md);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--s-md);
   margin-bottom: var(--s-md);
 }
 .foto-slot {

@@ -11,16 +11,94 @@
         </div>
         <div class="dashboard__actions">
           <!-- Notifications -->
-          <button class="btn-circle btn-circle--ghost" aria-label="Notificações (3 novas)" style="position:relative">
-            <svg viewBox="0 0 24 24" fill="white" aria-hidden="true">
-              <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-            </svg>
-            <span class="notif-dot" aria-hidden="true">3</span>
-          </button>
+          <div
+            class="notif-menu"
+            ref="notifMenuRef"
+          >
+            <button
+              class="btn-circle btn-circle--ghost"
+              :aria-label="`Notificacoes (${naoLidasCount} novas)`"
+              style="position:relative"
+              @click="toggleNotifications"
+            >
+              <svg viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+              </svg>
+              <span v-if="naoLidasCount > 0" class="notif-dot" aria-hidden="true">{{ Math.min(naoLidasCount, 9) }}</span>
+            </button>
+
+            <Transition name="fade">
+              <div
+                v-if="notifOpen"
+                class="notif-popover"
+                role="dialog"
+                aria-label="Notificacoes recentes"
+              >
+                <div class="notif-popover__head">
+                  <strong>Notificacoes</strong>
+                  <button class="notif-popover__clear" @click="limparNotificacoes">Limpar</button>
+                </div>
+
+                <div v-if="notificacoesOrdenadas.length === 0" class="notif-popover__empty">
+                  Nenhuma notificacao no momento.
+                </div>
+
+                <ul v-else class="notif-list" role="list">
+                  <li
+                    v-for="item in notificacoesOrdenadas.slice(0, 6)"
+                    :key="item.id"
+                    class="notif-item"
+                    :class="`notif-item--${item.type}`"
+                    role="listitem"
+                    @click="marcarComoLida(item.id)"
+                  >
+                    <p class="notif-item__title">{{ item.title }}</p>
+                    <p class="notif-item__message">{{ item.message }}</p>
+                    <span class="notif-item__time">{{ formatDate(item.createdAt) }}</span>
+                  </li>
+                </ul>
+              </div>
+            </Transition>
+          </div>
           <!-- Profile avatar -->
-          <button class="btn-circle btn-circle--ghost" aria-label="Perfil do usuário">
-            <span class="avatar-initials" aria-hidden="true">{{ initials }}</span>
-          </button>
+          <div
+            class="profile-menu"
+            ref="profileMenuRef"
+          >
+            <button
+              class="btn-circle btn-circle--ghost"
+              aria-label="Perfil do usuario"
+              @click="toggleProfile"
+            >
+              <span class="avatar-initials" aria-hidden="true">{{ initials }}</span>
+            </button>
+
+            <Transition name="fade">
+              <div
+                v-if="profileOpen"
+                class="profile-popover"
+                role="dialog"
+                aria-label="Dados do usuario"
+              >
+                <div class="profile-popover__head">
+                  <div>
+                    <p class="profile-popover__name">{{ user?.name || 'Usuario' }}</p>
+                    <p class="profile-popover__role">{{ user?.role || 'Cargo nao definido' }}</p>
+                  </div>
+                  <span class="profile-popover__initials" aria-hidden="true">{{ initials }}</span>
+                </div>
+
+                <div class="profile-popover__contact">
+                  <p class="profile-popover__label">Contato</p>
+                  <p class="profile-popover__email">{{ user?.email || 'E-mail nao informado' }}</p>
+                </div>
+
+                <button class="profile-popover__logout" @click="logoutUser">
+                  Sair da conta
+                </button>
+              </div>
+            </Transition>
+          </div>
         </div>
       </div>
 
@@ -38,16 +116,18 @@
       <!-- Summary cards -->
       <div class="dashboard__summary" role="region" aria-label="Resumo de inspeções">
         <div class="card-resumo card-resumo--total">
-          <span class="card-resumo__num">{{ total }}</span>
+          <span class="card-resumo__num">{{ userTotal }}</span>
           <span class="card-resumo__label">Total</span>
         </div>
+
         <div class="card-resumo card-resumo--enviadas">
-          <span class="card-resumo__num">{{ sincronizadas }}</span>
+          <span class="card-resumo__num">{{ userSincronizadas }}</span>
           <span class="card-resumo__label">Sincronizadas</span>
         </div>
-        <div class="card-resumo card-resumo--rascunhos">
-          <span class="card-resumo__num">{{ pendentesSync }}</span>
-          <span class="card-resumo__label">Pendentes</span>
+
+        <div class="card-resumo card-resumo--pendentes" :class="{ 'card-resumo--pendentes-ativo': userPendentes > 0 }">
+          <span class="card-resumo__num">{{ userPendentes }}</span>
+          <span class="card-resumo__label">Aguardando</span>
         </div>
       </div>
 
@@ -80,18 +160,18 @@
       <section aria-labelledby="titulo-recentes">
         <div class="section-header">
           <h2 id="titulo-recentes" class="section-title">Inspeções Recentes</h2>
-          <button class="section-link" aria-label="Ver todas as inspeções">Ver todas</button>
+          <button class="section-link" aria-label="Ver todas as inspeções" @click="abrirHistorico">Ver todas</button>
         </div>
 
         <div class="inspection-list" role="list">
 
-          <div v-if="recentes.length === 0" class="lista-vazia">
+          <div v-if="recentesVisiveis.length === 0" class="lista-vazia">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.33C18 2.97 16.03 1 13.67 1c-1.28 0-2.43.53-3.27 1.39L9 3.8l-1.4-1.41C6.77 1.53 5.62 1 4.33 1 1.97 1 0 2.97 0 5.33c0 1.11.47 2.09 1.2 2.83L9 16l5.14-5.14-1.06-1.06L9 14.17 2.34 7.51c-.45-.45-.67-1.06-.67-1.67C1.67 3.83 2.84 2.67 4.33 2.67c.6 0 1.17.2 1.6.63L9 6.37l3.07-3.07c.43-.43 1-.63 1.6-.63C14.96 2.67 16 3.72 16 5c0 .61-.22 1.18-.6 1.6l-.67.67 5.28 5.27V6z"/></svg>
             <p>Nenhuma inspeção registrada ainda.</p>
           </div>
 
           <div
-            v-for="ins in recentes"
+            v-for="ins in recentesVisiveis"
             :key="ins.localId"
             class="card-inspecao-wrap"
             role="listitem"
@@ -100,7 +180,7 @@
               class="card-inspecao"
               :class="`card-inspecao--${ins.status}`"
               :aria-label="`FDC-EEA.EF – ${ins.nomeContratada || 'N/I'} em ${ins.estacao || ''}, ${ins.status}`"
-              @click="abrirInspecao(ins.localId)"
+              @click="abrirInspecao(ins)"
             >
             <!-- Icon -->
             <div class="card-ins__icon icone-efluente" aria-hidden="true">
@@ -109,7 +189,13 @@
 
             <!-- Body -->
             <div class="card-ins__body">
-              <p class="card-ins__title">{{ ins.nomeContratada || 'FDC-EEA.EF' }}</p>
+              <div class="card-ins__head">
+                <p class="card-ins__title">{{ ins.nomeContratada || 'FDC-EEA.EF' }}</p>
+                <span class="card-ins__owner" :title="ins.funcionarioNome || ins.autorCadastro || 'Usuario'">
+                  {{ ownerInitials(ins) }}
+                </span>
+              </div>
+              <p class="card-ins__author">{{ ins.funcionarioNome || ins.autorCadastro || user?.name || 'Usuario' }}</p>
               <p class="card-ins__local">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                 {{ ins.estacao || ins.nomeLocal || '—' }} · {{ ins.linha || '—' }}
@@ -118,6 +204,7 @@
                 <StatusBadge :status="ins.status" />
                 <span class="card-ins__date">{{ formatDate(ins.updatedAt) }}</span>
               </div>
+              <p v-if="ins.syncStatus !== 'sincronizado'" class="card-ins__sync-hint">{{ getSyncHint(ins.syncStatus) }}</p>
               <p v-if="ins.lastError" class="card-ins__error">{{ ins.lastError }}</p>
             </div>
 
@@ -145,10 +232,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useInspecoesStore } from '@/stores/inspecoes'
+import { useNotificacoesStore } from '@/stores/notificacoes'
 import { useSaudacao } from '@/composables/useSaudacao'
 import LogoBadge from '@/components/LogoBadge.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -156,30 +244,104 @@ import StatusBadge from '@/components/StatusBadge.vue'
 const router = useRouter()
 const auth = useAuthStore()
 const store = useInspecoesStore()
+const notificacoes = useNotificacoesStore()
 const { saudacao } = useSaudacao()
+const notifOpen = ref(false)
+const profileOpen = ref(false)
+const notifMenuRef = ref(null)
+const profileMenuRef = ref(null)
 
-const user    = computed(() => auth.currentUser)
+const user    = computed(() => auth.currentUser?.value ?? auth.currentUser)
 const initials = computed(() => {
   if (!user.value?.name) return 'U'
   return user.value.name.split(' ').map(w => w[0]).slice(0, 2).join('')
 })
 
-const total    = computed(() => store.total)
-const sincronizadas = computed(() => store.sincronizadas)
 const pendentesSync = computed(() => store.pendentesSync)
-const recentes = computed(() => store.recentes)
+const isGestor = computed(() => auth.isGestor?.value ?? auth.isGestor)
+
+// Filtragens por usuario (inspetor)
+const userRecords = computed(() => {
+  const uid = user.value?.id
+  const nome = user.value?.name
+  if (!uid) return []
+  return store.porFuncionario(uid, nome)
+})
+
+const userTotal = computed(() => userRecords.value.length)
+const userSincronizadas = computed(() => userRecords.value.filter((i) => i.syncStatus === 'sincronizado').length)
+const userPendentes = computed(() => userRecords.value.filter((i) => ['pendente_sync', 'erro_sync', 'sincronizando'].includes(i.syncStatus)).length)
+
+const recentesVisiveis = computed(() => {
+  return userRecords.value.slice(0, 5)
+})
+const notificacoesOrdenadas = computed(() => notificacoes.ordenadas)
+const naoLidasCount = computed(() => notificacoes.naoLidasCount)
 
 onMounted(async () => {
   await store.initialize()
+  if (store.browserOnline) {
+    await store.carregarDoServidor().catch(() => {})
+  }
+  document.addEventListener('pointerdown', handleOutsideClick)
 })
 
-function abrirInspecao(localId) {
-  router.push({ path: '/formulario', query: { localId } })
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', handleOutsideClick)
+})
+
+function handleOutsideClick(event) {
+  const target = event.target
+  const clickedNotif = notifMenuRef.value?.contains(target)
+  const clickedProfile = profileMenuRef.value?.contains(target)
+
+  if (!clickedNotif) {
+    notifOpen.value = false
+  }
+
+  if (!clickedProfile) {
+    profileOpen.value = false
+  }
+}
+
+function toggleNotifications() {
+  profileOpen.value = false
+  notifOpen.value = !notifOpen.value
+  if (notifOpen.value) {
+    notificacoes.marcarTodasComoLidas()
+  }
+}
+
+function marcarComoLida(id) {
+  notificacoes.marcarComoLida(id)
+}
+
+function limparNotificacoes() {
+  notificacoes.limpar()
+}
+
+function toggleProfile() {
+  notifOpen.value = false
+  profileOpen.value = !profileOpen.value
+}
+
+function logoutUser() {
+  auth.logout()
+  profileOpen.value = false
+  router.replace('/login')
+}
+
+function abrirInspecao(inspecao) {
+  router.push({ path: '/formulario', query: { localId: inspecao.localId } })
 }
 
 function novaInspecao() {
   // Force reload after navigation so FormularioView always starts fresh
   router.push('/formulario').then(() => window.location.reload())
+}
+
+function abrirHistorico() {
+  router.push('/inspecoes-recentes')
 }
 
 async function sincronizarAgora() {
@@ -206,6 +368,26 @@ function formatDate(ts) {
   if (diff < 172800000) return 'Ontem, ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ', ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
+
+function getSyncHint(syncStatus) {
+  if (syncStatus === 'rascunho') return 'Rascunho salvo localmente.'
+  if (syncStatus === 'pendente_sync') return 'Aguardando sincronizacao automatica.'
+  if (syncStatus === 'sincronizando') return 'Sincronizacao em andamento.'
+  if (syncStatus === 'erro_sync') return 'Falha no ultimo envio. Toque em Tentar novamente.'
+  return ''
+}
+
+function ownerInitials(inspecao) {
+  if (inspecao.funcionarioInitials) return String(inspecao.funcionarioInitials).toUpperCase().slice(0, 2)
+
+  const nome = String(inspecao.funcionarioNome || inspecao.autorCadastro || user.value?.name || '').trim()
+  if (!nome) return '??'
+
+  const partes = nome.split(/\s+/).filter(Boolean)
+  const primeira = partes[0]?.[0] ?? ''
+  const segunda = partes.length > 1 ? (partes[partes.length - 1]?.[0] ?? '') : (partes[0]?.[1] ?? '')
+  return `${primeira}${segunda}`.toUpperCase() || '??'
+}
 </script>
 
 <style scoped>
@@ -222,7 +404,13 @@ function formatDate(ts) {
   background: linear-gradient(150deg, #C8102E 0%, #9B0B22 100%);
   padding: calc(48px + var(--safe-top)) var(--s-lg) 64px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+}
+@media (max-height: 540px) {
+  .dashboard__header {
+    padding-top: calc(12px + var(--safe-top));
+    padding-bottom: 40px;
+  }
 }
 .dashboard__header::before {
   content: '';
@@ -258,6 +446,17 @@ function formatDate(ts) {
   letter-spacing: 0.1em;
 }
 .dashboard__actions { display: flex; gap: var(--s-sm); align-items: center; }
+.dashboard__actions { transform: translateY(-12px); }
+
+.notif-menu {
+  position: relative;
+  z-index: 10000;
+}
+
+.profile-menu {
+  position: relative;
+  z-index: 10000;
+}
 
 /* Icon buttons in header */
 .btn-circle {
@@ -286,6 +485,192 @@ function formatDate(ts) {
   color: white;
   display: flex; align-items: center; justify-content: center;
   line-height: 1;
+}
+
+.notif-popover {
+  position: absolute;
+  right: 0;
+  top: 52px;
+  width: min(320px, calc(100vw - 24px));
+  max-height: 320px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: white;
+  border: 1px solid #e7e8ec;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  padding: 10px;
+  z-index: 10001;
+}
+
+.notif-popover__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f1f5;
+  color: var(--cptm-cinza-escuro);
+}
+
+.notif-popover__clear {
+  border: none;
+  background: transparent;
+  color: var(--cptm-vermelho);
+  font-size: var(--txt-xs);
+  font-weight: 700;
+  cursor: pointer;
+  min-height: auto;
+  width: auto;
+  padding: 0;
+}
+
+.notif-popover__empty {
+  color: var(--cptm-cinza-claro);
+  font-size: var(--txt-sm);
+  padding: 10px 4px;
+}
+
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.notif-item {
+  border: 1px solid #eceef3;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fcfcfd;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.notif-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.notif-item--success { border-left: 4px solid #2e7d32; }
+.notif-item--warning { border-left: 4px solid #f57f17; }
+.notif-item--error { border-left: 4px solid #c62828; }
+.notif-item--info { border-left: 4px solid #1565c0; }
+
+.notif-item__title {
+  margin: 0;
+  font-size: var(--txt-sm);
+  font-weight: 800;
+  color: var(--cptm-cinza-escuro);
+}
+
+.notif-item__message {
+  margin: 3px 0 0;
+  font-size: var(--txt-xs);
+  color: var(--cptm-cinza-medio);
+  line-height: 1.4;
+}
+
+.notif-item__time {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--cptm-cinza-claro);
+}
+
+.profile-popover {
+  position: absolute;
+  right: 0;
+  top: 52px;
+  width: min(290px, calc(100vw - 24px));
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: white;
+  border: 1px solid #e7e8ec;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  padding: 12px;
+  z-index: 10001;
+}
+
+.profile-popover__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f1f5;
+}
+
+.profile-popover__name {
+  margin: 0;
+  font-size: var(--txt-sm);
+  font-weight: 800;
+  color: var(--cptm-cinza-escuro);
+}
+
+.profile-popover__role {
+  margin: 3px 0 0;
+  font-size: var(--txt-xs);
+  color: var(--cptm-cinza-medio);
+}
+
+.profile-popover__initials {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f5f6f8;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--txt-xs);
+  font-weight: 900;
+  color: var(--cptm-cinza-medio);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.profile-popover__contact {
+  padding: 10px 0;
+}
+
+.profile-popover__label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cptm-cinza-claro);
+}
+
+.profile-popover__email {
+  margin: 4px 0 0;
+  font-size: var(--txt-sm);
+  color: var(--cptm-cinza-escuro);
+  word-break: break-word;
+}
+
+.profile-popover__logout {
+  width: 100%;
+  border: 1px solid #c8102e;
+  border-radius: 10px;
+  background: #fff5f7;
+  color: #c8102e;
+  font-size: var(--txt-sm);
+  font-weight: 800;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+
+.profile-popover__logout:hover {
+  background: #ffe9ee;
+}
+
+.profile-popover__logout:active {
+  transform: scale(0.99);
 }
 
 .avatar-initials {
@@ -318,7 +703,7 @@ function formatDate(ts) {
 .dashboard__content {
   flex: 1;
   padding: 0 var(--s-md);
-  margin-top: -20px;
+  margin-top: 2px;
   position: relative;
   z-index: 1;
 }
@@ -352,6 +737,8 @@ function formatDate(ts) {
 .card-resumo--total    .card-resumo__num { color: var(--cptm-cinza-escuro); }
 .card-resumo--enviadas .card-resumo__num { color: var(--status-enviada); }
 .card-resumo--rascunhos .card-resumo__num { color: var(--status-rascunho); }
+.card-resumo--pendentes .card-resumo__num { color: var(--cptm-cinza-medio, #9e9e9e); }
+.card-resumo--pendentes-ativo .card-resumo__num { color: #f59e0b; }
 
 .dashboard__sync-panel {
   display: flex;
@@ -486,6 +873,13 @@ function formatDate(ts) {
 .icone-erosao svg { fill: #F57F17; }
 
 .card-ins__body { flex: 1; min-width: 0; }
+.card-ins__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .card-ins__title {
   font-size: var(--txt-base);
   font-weight: 700;
@@ -493,6 +887,29 @@ function formatDate(ts) {
   margin-bottom: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+.card-ins__owner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #eef2ff;
+  border: 1px solid #dbe3ff;
+  color: #1e40af;
+  font-size: 0.68rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.card-ins__author {
+  margin: 0 0 4px;
+  font-size: 0.74rem;
+  color: var(--cptm-cinza-medio);
+}
+
 .card-ins__local {
   font-size: var(--txt-sm);
   color: var(--cptm-cinza-claro);
@@ -504,6 +921,12 @@ function formatDate(ts) {
   margin-top: 6px;
   font-size: var(--txt-xs);
   color: #c62828;
+}
+
+.card-ins__sync-hint {
+  margin-top: 4px;
+  font-size: 0.74rem;
+  color: #7a6b2f;
 }
 
 .card-ins__retry {

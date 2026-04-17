@@ -51,12 +51,12 @@
     <div class="gestor__content">
 
       <div class="section-header">
-        <h2 class="section-title">Todas as Inspeções</h2>
-        <span class="section-sub">{{ store.todas.length }} formulário(s) registrado(s)</span>
+        <h2 class="section-title">Inspeções Recentes</h2>
+        <span class="section-sub">Últimas 10 de todos os usuários</span>
       </div>
 
       <!-- All inspections -->
-      <div v-if="store.todas.length === 0" class="lista-vazia">
+      <div v-if="recentesGestao.length === 0" class="lista-vazia">
         <svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40" style="opacity:.3;margin:0 auto 8px" aria-hidden="true">
           <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15h8v2H8zm0-4h8v2H8zm0-4h5v2H8z"/>
         </svg>
@@ -65,7 +65,7 @@
 
       <div class="func-lista" role="list">
         <button
-          v-for="ins in store.todas"
+          v-for="ins in recentesGestao"
           :key="ins.localId"
           class="func-card"
           role="listitem"
@@ -285,7 +285,7 @@ const store  = useInspecoesStore()
 const user      = computed(() => auth.currentUser)
 const { saudacao } = useSaudacao()
 
-const ultimasPorFuncionario = computed(() => store.ultimasPorFuncionario)
+const recentesGestao = computed(() => store.todas.slice(0, 10))
 
 const funcionarios = computed(() => {
   const ids = new Set(store.todas.map(i => i.funcionarioId).filter(Boolean))
@@ -297,6 +297,9 @@ const confirmandoExclusao = ref(false)
 
 onMounted(async () => {
   await store.initialize()
+  if (store.browserOnline) {
+    await store.carregarDoServidor().catch(() => {})
+  }
 })
 
 const AVATAR_CLASSES = ['av-red', 'av-blue', 'av-green', 'av-purple']
@@ -428,7 +431,6 @@ function handleLogout() {
 .section-header { margin-bottom: var(--s-md); }
 .section-title { font-size: var(--txt-base); font-weight: 700; color: var(--cptm-cinza-escuro); margin-bottom: 2px; }
 .section-sub { font-size: var(--txt-xs); color: var(--cptm-cinza-claro); }
-
 /* ---- Employee list ---- */
 .func-lista { display: flex; flex-direction: column; gap: var(--s-sm); }
 
