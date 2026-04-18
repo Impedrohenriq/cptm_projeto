@@ -4,6 +4,36 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (
+              id.includes('/vue/') ||
+              id.includes('/vue-router/') ||
+              id.includes('/pinia/')
+            ) {
+              return 'vendor'
+            }
+
+            if (id.includes('/dexie/')) {
+              return 'offline'
+            }
+
+            if (
+              id.includes('/workbox-') ||
+              id.includes('/workbox/') ||
+              id.includes('/virtual:pwa-register/') ||
+              id.includes('/vite-plugin-pwa/')
+            ) {
+              return 'pwa'
+            }
+          }
+        }
+      }
+    }
+  },
   plugins: [
     vue(),
     VitePWA({

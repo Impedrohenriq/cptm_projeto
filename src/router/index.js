@@ -55,7 +55,14 @@ const routes = [
 const router = createRouter({
   history: createWebHashHistory(),
   routes,
-  scrollBehavior: () => ({ top: 0, behavior: 'instant' })
+  scrollBehavior: (_, __, savedPosition) => {
+    // Defer scroll restoration to the next frame to reduce layout thrashing during navigation.
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        resolve(savedPosition || { left: 0, top: 0 })
+      })
+    })
+  }
 })
 
 router.beforeEach((to) => {
