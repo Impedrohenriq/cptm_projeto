@@ -28,15 +28,16 @@
 
     <!-- Loading footer -->
     <footer class="splash__footer" aria-live="polite" aria-label="Carregando recursos">
-      <p class="splash__loading-text">Carregando recursos offline...</p>
+      <p class="splash__loading-text">{{ statusMsg }}</p>
       <div
         class="splash__progress-wrap"
         role="progressbar"
         aria-valuemin="0"
         aria-valuemax="100"
+        :aria-valuenow="progress"
         aria-label="Progresso de carregamento"
       >
-        <div class="splash__progress-bar"></div>
+        <div class="splash__progress-bar" :style="{ width: progress + '%' }"></div>
       </div>
       <p class="splash__version">v1.0.0 &bull; {{ year }}</p>
     </footer>
@@ -45,39 +46,86 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useInspecoesStore } from '@/stores/inspecoes'
 import IconLeaf from '@/components/IconLeaf.vue'
 
-const router = useRouter()
-const auth = useAuthStore()
-const year = new Date().getFullYear()
+const router  = useRouter()
+const auth    = useAuthStore()
+const store   = useInspecoesStore()
+const year    = new Date().getFullYear()
 
-onMounted(() => {
-  if ('serviceWorker' in navigator) {
-    if (import.meta.env.DEV) {
-      // Em modo de desenvolvimento, desregistra service workers antigos de builds
-      // anteriores que podem estar servindo assets desatualizados em cache
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => r.unregister())
-      })
+const progress  = ref(0)
+const statusMsg = ref('Iniciando...')
+
+// Anima a barra suavemente até um valor-alvo via requestAnimationFrame
+function animateTo(target, duration = 350) {
+  return new Promise(resolve => {
+    const start     = progress.value
+    const startTime = performance.now()
+    function step(now) {
+      const pct = Math.min((now - startTime) / duration, 1)
+      progress.value = Math.round(start + (target - start) * pct)
+      if (pct < 1) requestAnimationFrame(step)
+      else resolve()
     }
-    // Em produção, o vite-plugin-pwa injeta o registerSW.js automaticamente no HTML
-    // não precisamos registrar manualmente aqui
+    requestAnimationFrame(step)
+  })
+}
+
+onMounted(async () => {
+  // Desregistrar SW antigos em DEV para evitar cache desatualizado
+  if ('serviceWorker' in navigator && import.meta.env.DEV) {
+    const regs = await navigator.serviceWorker.getRegistrations().catch(() => [])
+    regs.forEach(r => r.unregister())
   }
 
-  setTimeout(() => {
-    if (auth.isAuthenticated) {
-      if (auth.isGestor) {
-        router.replace('/gestor')
-      } else {
-        router.replace(auth.needsOnboarding ? '/onboarding' : '/dashboard')
-      }
+  // Marca o início para garantir mínimo de 1 segundo na splash
+  const startAt = Date.now()
+
+  // Etapa 1 — carrega dados locais do IndexedDB
+  statusMsg.value = 'Carregando dados locais...'
+  await animateTo(25)
+  await store.initialize().catch(() => {})
+  await animateTo(50)
+
+  // Etapa 2 — tenta sincronizar com a API (aguarda até 6 s em internet lenta)
+  statusMsg.value = store.browserOnline
+    ? 'Verificando conexão com o servidor...'
+    : 'Modo offline — carregando do dispositivo...'
+
+  const apiPromise     = store.browserOnline
+    ? store.carregarDoServidor().catch(() => {})
+    : Promise.resolve()
+  const timeoutPromise = new Promise(resolve => setTimeout(resolve, 6000))
+
+  await Promise.race([apiPromise, timeoutPromise])
+  await animateTo(90)
+
+  // Etapa 3 — garante mínimo de 1 segundo total visível na splash
+  const elapsed   = Date.now() - startAt
+  const remaining = Math.max(0, 1000 - elapsed)
+  if (remaining > 0) {
+    statusMsg.value = 'Quase pronto...'
+    await new Promise(resolve => setTimeout(resolve, remaining))
+  }
+
+  await animateTo(100, 200)
+  statusMsg.value = 'Pronto!'
+  await new Promise(resolve => setTimeout(resolve, 200))
+
+  // Navega para a rota correta conforme autenticação e perfil
+  if (auth.isAuthenticated) {
+    if (auth.isGestor) {
+      router.replace('/gestor')
     } else {
-      router.replace('/login')
+      router.replace(auth.needsOnboarding ? '/onboarding' : '/dashboard')
     }
-  }, 2800)
+  } else {
+    router.replace('/login')
+  }
 })
 </script>
 
@@ -220,13 +268,7 @@ onMounted(() => {
   height: 100%;
   background: rgba(255,255,255,.80);
   border-radius: 2px;
-  animation: splashLoading 2.2s ease-in-out both;
-}
-@keyframes splashLoading {
-  0%   { width: 0%; }
-  30%  { width: 40%; }
-  70%  { width: 75%; }
-  100% { width: 100%; }
+  transition: width 0.3s ease;
 }
 .splash__version {
   font-size: 0.7rem;
